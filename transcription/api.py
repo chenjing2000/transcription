@@ -1,4 +1,4 @@
-"""Public transcription entry point; Phase 4 returns in-memory recognition results.
+"""Public transcription entry point; Phase 4–5 return in-memory recognition results.
 
 The agreed four-file publication is Phase 6 and is not silently simulated.
 """
@@ -32,7 +32,7 @@ def _device(requested: str) -> str:
 
 def transcribe(file_path: str | Path, engine: str, *, device: str = "auto",
                audio_track: int = 0) -> TranscriptionResult:
-    """Recognize English with WhisperX; publishing and Chinese ASR remain pending.
+    """Recognize with WhisperX or Paraformer; publishing remains pending.
 
     All expected failures return a status='failed' result. Successful English
     recognition is 'partial' until the Phase 6 output contract is implemented.
@@ -60,7 +60,7 @@ def transcribe(file_path: str | Path, engine: str, *, device: str = "auto",
             prepared = prepare_audio(source, workdir, audio_track=audio_track)
             result = _MANAGER.run(
                 spec.name, selected,
-                lambda: WhisperXEngine(model_id=spec.model_id, name=spec.name, device=selected),
+                lambda: Adapter(model_id=spec.model_id, name=spec.name, device=selected),
                 lambda adapter: adapter.transcribe(prepared.audio_path),
             )
             result.source_path = source
