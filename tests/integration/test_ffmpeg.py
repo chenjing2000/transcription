@@ -22,7 +22,7 @@ def test_aac_video_stream_copy(tmp_path: Path):
     assert prepared.extracted
     assert prepared.audio_path.suffix == ".m4a"
     assert prepared.audio_path.exists()
-    copied = probe_media(prepared.audio_path)
+    copied = probe_media(prepared.audio_path, allow_extracted=True)
     assert original.audio_streams[0].codec == copied.audio_streams[0].codec == "aac"
     assert original.audio_streams[0].sample_rate == copied.audio_streams[0].sample_rate
     assert original.audio_streams[0].channels == copied.audio_streams[0].channels
