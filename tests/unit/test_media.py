@@ -78,3 +78,15 @@ def test_probing_input_checks(tmp_path):
     with pytest.raises(TranscriptionError) as error:
         probe_media(source, ffprobe="ffprobe")
     assert error.value.code == "UNSUPPORTED_FORMAT"
+
+
+def test_extracted_media_validation_allows_m4a_and_flac_only_internally(monkeypatch, tmp_path):
+    monkeypatch.setattr("transcription.media._run", lambda *a: _response())
+    for ext in (".m4a", ".flac"):
+        path = tmp_path / ("sample" + ext)
+        path.touch()
+        with pytest.raises(TranscriptionError) as err:
+            probe_media(path, ffprobe="ffprobe")
+        assert err.value.code == "UNSUPPORTED_FORMAT"
+        info = probe_media(path, ffprobe="ffprobe", allow_extracted=True)
+        assert info.audio_streams[0].codec == "aac"

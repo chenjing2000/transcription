@@ -109,10 +109,11 @@ def _optional_int(value: object) -> int | None:
         return None
 
 
-def probe_media(file_path: str | Path, *, ffprobe: str | None = None) -> MediaInfo:
-    """Inspect an MP4/MKV/MP3/WAV and its audio streams without modifying it."""
+def probe_media(file_path: str | Path, *, ffprobe: str | None = None, allow_extracted: bool = False) -> MediaInfo:
+    """Inspect source media, or known copied-audio containers for internal validation."""
     path = Path(file_path)
-    if path.suffix.lower() not in SUPPORTED_INPUTS:
+    allowed = SUPPORTED_INPUTS | frozenset(COPY_EXTENSIONS.values()) if allow_extracted else SUPPORTED_INPUTS
+    if path.suffix.lower() not in allowed:
         raise TranscriptionError("UNSUPPORTED_FORMAT", f"Unsupported media extension: {path.suffix}")
     if not path.is_file():
         raise TranscriptionError("INVALID_INPUT", f"Input file does not exist: {path}")
@@ -199,7 +200,7 @@ def prepare_audio(
         ], "FFmpeg stream-copy failed")
         if not destination.is_file() or destination.stat().st_size == 0:
             raise TranscriptionError("AUDIO_EXTRACTION_FAILED", "No audio file was produced")
-        extracted = probe_media(destination, ffprobe=ffprobe)
+        extracted = probe_media(destination, ffprobe=ffprobe, allow_extracted=True)
         copied = extracted.audio_streams[0]
         if (copied.codec != stream.codec or copied.sample_rate != stream.sample_rate
                 or copied.channels != stream.channels):
