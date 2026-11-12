@@ -2,7 +2,7 @@
 
 A Python-first, extensible Chinese/English audio/video transcription project.
 
-**Current status: Phase 1 + Phase 2 foundation only. Real audio/video transcription, FFmpeg extraction, time alignment, JSON/TXT exports and model installation are NOT implemented yet.** The two engines are registered as placeholders and deliberately return `NOT_IMPLEMENTED` when invoked.
+**Current status: Phase 4 implementation in progress.** Media probing and audio stream-copy are implemented; WhisperX large-v3 English recognition and forced alignment are wired into the public API. Paraformer Chinese ASR and four-file JSON/TXT publishing are NOT implemented. English recognition returns `status='partial'` because outputs are not yet published. GPU/model downloading still requires real-world validation.
 
 ## Public API
 
@@ -43,3 +43,19 @@ Python 3.11/3.12 are proposed for future ASR compatibility checks; neither CUDA 
 - Only one active cached engine; release it before switching engine/device and support `release_models()`.
 
 See `docs/architecture.md`, `docs/roadmap.md`, and `docs/output_schema.md`.
+
+## Phase 4: English recognition (optional dependencies)
+
+Install WhisperX and a compatible PyTorch/CUDA stack according to the [upstream WhisperX instructions](https://github.com/m-bain/whisperX). The default test install intentionally does not install or download large ASR models. Example after installing WhisperX:
+
+```python
+from transcription import transcribe, release_models
+result = transcribe("speech.wav", engine="whisperx_large_v3", device="cpu")
+print(result.status, result.info, result.text)
+for word in result.words:
+    print(word.text, word.start, word.end, word.char_start, word.char_end)
+release_models()
+```
+
+The default CPU path uses int8; CUDA path uses float16 and batch size 4. If your installed backend does not support a compute type, a meaningful model load error is returned. **This phase does not write the four output files** and temporary extracted audio is not retained; avoid interpreting returned word times as video time before timeline validation.
+

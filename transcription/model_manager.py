@@ -1,13 +1,12 @@
-"""Single-active-engine cache and explicit resource cleanup.
-
-Framework-specific loading is intentionally deferred to Phase 4/5.
-"""
+"""Single-active-model cache with synchronized inference and explicit cleanup."""
 from __future__ import annotations
 
 import gc
 from threading import RLock
-from typing import Callable
+from typing import Callable, TypeVar
 from .engines.base import BaseEngine
+
+_T = TypeVar("_T")
 
 
 class ModelManager:
@@ -16,18 +15,27 @@ class ModelManager:
         self._key: tuple[str, str] | None = None
         self._engine: BaseEngine | None = None
 
-    def get_or_load(
-        self, name: str, device: str, factory: Callable[[], BaseEngine]
-    ) -> BaseEngine:
+    def _get_unlocked(self, name: str, device: str, factory: Callable[[], BaseEngine]) -> BaseEngine:
+        key = (name, device)
+        if self._engine is not None and self._key == key:
+            return self._engine
+        self._release_unlocked()
+        instance = factory()
+        self._engine = instance
+        self._key = key
+        return instance
+
+    def get_or_load(self, name: str, device: str, factory: Callable[[], BaseEngine]) -> BaseEngine:
+        """Legacy convenience method. Prefer run() for thread-safe inference."""
         with self._lock:
-            key = (name, device)
-            if self._engine is not None and self._key == key:
-                return self._engine
-            self._release_unlocked()
-            instance = factory()
-            self._engine = instance
-            self._key = key
-            return instance
+            return self._get_unlocked(name, device, factory)
+
+    def run(self, name: str, device: str, factory: Callable[[], BaseEngine],
+            operation: Callable[[BaseEngine], _T]) -> _T:
+        """Hold the manager lock throughout inference to prevent mid-run unloading."""
+        with self._lock:
+            engine = self._get_unlocked(name, device, factory)
+            return operation(engine)
 
     def _release_unlocked(self) -> None:
         old = self._engine
@@ -43,7 +51,7 @@ class ModelManager:
 
     @staticmethod
     def _empty_cuda_cache() -> None:
-        # No hard dependency on torch for engine discovery and unit tests.
+        # Avoid importing torch simply to list engines or release empty cache.
         import sys
         torch = sys.modules.get("torch")
         if torch is not None:
@@ -62,5 +70,5 @@ _MANAGER = ModelManager()
 
 
 def release_models() -> None:
-    """Release any cached engine loaded via the shared model manager."""
+    """Release the active cached model."""
     _MANAGER.release()
