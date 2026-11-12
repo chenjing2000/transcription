@@ -52,10 +52,13 @@ def transcribe(file_path: str | Path, engine: str, *, device: str = "auto",
             raise TranscriptionError("UNSUPPORTED_FORMAT", "Supported inputs: mp4, mkv, mp3, wav")
         if not source.is_file():
             raise TranscriptionError("INVALID_INPUT", f"Input file does not exist: {source}")
-        if spec.name != "whisperx_large_v3":
+        if spec.name not in {"whisperx_large_v3", "paraformer_zh"}:
             raise TranscriptionError("NOT_IMPLEMENTED", f"Engine {spec.name} is registered but not implemented")
         selected = _device(device)
-        from .engines.whisperx import WhisperXEngine
+        if spec.name == "whisperx_large_v3":
+            from .engines.whisperx import WhisperXEngine as Adapter
+        else:
+            from .engines.paraformer import ParaformerEngine as Adapter
         with TemporaryDirectory(prefix="transcription-") as workdir:
             prepared = prepare_audio(source, workdir, audio_track=audio_track)
             result = _MANAGER.run(
