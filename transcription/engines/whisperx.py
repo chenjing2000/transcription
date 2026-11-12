@@ -64,7 +64,13 @@ def _word_entries(segments: list[dict[str, Any]]) -> tuple[str, list[Word], list
             if not valid:
                 warnings.append(f"No reliable timestamp for word: {token!r}")
             cursor = pos + len(token)
-    return "".join(chunks).strip(), spans, warnings
+    complete = "".join(chunks)
+    removed_prefix = len(complete) - len(complete.lstrip())
+    if removed_prefix:
+        for word in spans:
+            word.char_start -= removed_prefix
+            word.char_end -= removed_prefix
+    return complete.strip(), spans, warnings
 
 
 class WhisperXEngine(BaseEngine):

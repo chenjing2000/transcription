@@ -77,3 +77,16 @@ def test_no_speech(monkeypatch, tmp_path):
     res = engine.transcribe(tmp_path / "silence.wav")
     assert res.status == "partial"
     assert res.words == []
+
+
+def test_leading_space_does_not_shift_word_character_offsets():
+    text, words, warnings = _word_entries([
+        {"text": " Hello world.", "words": [
+            {"word": " Hello", "start": 0.2, "end": 0.4},
+            {"word": " world.", "start": 0.5, "end": 0.9},
+        ]}
+    ])
+    assert text == "Hello world."
+    assert [(w.char_start, w.char_end) for w in words] == [(0, 5), (6, 12)]
+    assert [text[w.char_start:w.char_end] for w in words] == ["Hello", "world."]
+    assert not warnings
