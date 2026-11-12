@@ -20,7 +20,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install project and test dependencies
         run: python -m pip install -e ".[test]"
-      - name: Run unit tests
+      - name: Ensure FFmpeg/FFprobe are present
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue) -or -not (Get-Command ffprobe -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg -y --no-progress
+            $env:PATH += ";C:\ProgramData\chocolatey\bin"
+          }
+          ffmpeg -version
+          ffprobe -version
+      - name: Run unit and FFmpeg integration tests
         run: python -m pytest -q
       - name: Check engine listing
         run: python main.py
