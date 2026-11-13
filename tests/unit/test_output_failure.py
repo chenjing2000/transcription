@@ -58,3 +58,29 @@ def test_failed_result_cannot_be_published(tmp_path):
     obj = TranscriptionResult("failed", "invalid", "mock", src, text="Hello.")
     with pytest.raises(TranscriptionError):
         output.publish_result(obj, _media(src))
+
+
+def test_partial_copy_failure_cleans_new_file_and_prior_siblings(monkeypatch, tmp_path):
+    src = tmp_path / "media.wav"
+    src.write_bytes(b"source")
+    result = TranscriptionResult(
+        "partial", "", "mock", src, text="Hello.",
+        words=[Word("Hello.", 0.1, 0.3, 0, 6, "aligned")],
+    )
+    original = output.shutil.copyfileobj
+    count = 0
+
+    def interrupt_copy(readable, writable, length=0):
+        nonlocal count
+        count += 1
+        if count == 2:
+            writable.write(b"partial data")
+            raise OSError("disk full midway through write")
+        return original(readable, writable, length=length)
+
+    monkeypatch.setattr(output.shutil, "copyfileobj", interrupt_copy)
+    with pytest.raises(TranscriptionError) as error:
+        output.publish_result(result, _media(src))
+    assert error.value.code == "OUTPUT_FAILED"
+    folder = tmp_path / "transcript results"
+    assert list(folder.iterdir()) == []
