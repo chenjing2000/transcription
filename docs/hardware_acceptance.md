@@ -1,33 +1,55 @@
 # Optional real-model GPU acceptance
 
-This project does not ask end users to test every development milestone. Real
-model testing is deferred until both dependencies are installable.
+Normal GitHub Windows runners are CPU-only. The separate real English/Mandarin
+CPU tests have exercised recognition and timestamp exports, but **not** the
+WhisperX large-v3 GPU model or the GPU model-switching lifecycle.
 
-A future single local acceptance run with 2 short files verifies model loading,
-output publication and the switching order English → Chinese → English.
+## Stage 1 — prerequisites without downloading models
 
-## Preconditions
+Create a fresh Python 3.11 environment; do not modify an existing research
+environment. Install a CUDA-enabled PyTorch build compatible with the NVIDIA
+driver and RTX 5060 Ti's sm_120 architecture. Prefer the current official
+PyTorch Windows install selector: https://pytorch.org/get-started/locally/
 
-- Windows workstation with supported CUDA-enabled PyTorch and correct GPU driver
-- Compatible WhisperX and FunASR installations
-- FFmpeg and FFprobe on PATH
-- Two short known English/Mandarin recordings, ideally 10–30 seconds
-- Enough free SSD for model caches; downloads can be large
+Install the project, WhisperX, FunASR and FFmpeg/FFprobe, and run:
 
-PowerShell example, only when ready to conduct the real GPU acceptance:
+```powershell
+python -m transcription.doctor
+python -m transcription.gpu_diagnostics gpu-preflight.json
+```
+
+The second command must exit 0 and report `compute_ok: true`. If it fails,
+do not download huge ASR models until driver/CUDA compatibility is resolved.
+
+## Stage 2 — one bilingual hardware acceptance
+
+Only when Stage 1 passes and two short audio files are available, use:
 
 ```powershell
 $env:TRANSCRIPTION_ENABLE_HARDWARE = "1"
 $env:TRANSCRIPTION_EN_SAMPLE = "D:\\Samples\\english.wav"
 $env:TRANSCRIPTION_ZH_SAMPLE = "D:\\Samples\\mandarin.wav"
 $env:TRANSCRIPTION_HARDWARE_DEVICE = "gpu"
+$env:TRANSCRIPTION_GPU_REPORT = "gpu-acceptance-report.json"
 python -m pytest tests/hardware/test_real_models.py -m hardware -v
 ```
 
-Test generates output under each sample's `transcript results` and never
-overwrites pre-existing file groups. After the test, visually inspect
-transcript quality and alignment using the sample audio; unit tests alone do
-not establish acoustic accuracy.
+This tests **English large-v3 -> Chinese Paraformer -> English large-v3**
+and writes a JSON report even if an assertion or model loading fails.
+It records GPU model, PyTorch CUDA build, peak/allocated/reserved memory,
+driver-level readings when nvidia-smi is available, result status,
+timed-word coverage and transcript warnings.
 
-A successful import-only GitHub job is insufficient for this GPU test. The
-hardware test is intentionally skipped by normal CI unless explicitly enabled.
+These are observations rather than strict VRAM thresholds: PyTorch cached
+allocator memory and native CTranslate2/FunASR memory are not necessarily
+visible in the same counters. A device-level `nvidia-smi` comparison is also
+included.
+
+This test publishes output files under the source's `transcript results`,
+using numbered groups on reruns, and does not overwrite previous outputs.
+Inspect the generated report and review transcription/timestamp quality
+separately. No exact transcription accuracy guarantee follows from a clean run.
+
+Do not use these commands until CUDA preflight succeeds, and do not use
+`--force-reinstall` blindly because ML frameworks may resolve to incompatible
+PyTorch builds.
