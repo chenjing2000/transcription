@@ -1,0 +1,31 @@
+name: WhisperX tiny.en real CPU smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/whisperx-cpu-smoke.yml'
+      - 'tests/integration/test_whisperx_cpu_model.py'
+
+jobs:
+  whisperx-tiny:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      TRANSCRIPTION_ENABLE_CPU_MODEL: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install optional WhisperX model runtime
+        run: python -m pip install -e ".[test]" whisperx
+      - name: Ensure FFmpeg/FFprobe
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue) -or -not (Get-Command ffprobe -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg -y --no-progress
+          }
+          ffmpeg -version
+      - name: Run real tiny.en CPU model inference
+        run: python -m pytest tests/integration/test_whisperx_cpu_model.py -m real_model -v
