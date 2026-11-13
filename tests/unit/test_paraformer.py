@@ -63,3 +63,13 @@ def test_mocked_funasr_load_and_reuse(monkeypatch, tmp_path):
     engine.transcribe(tmp_path / "sample.wav")
     assert record == {"init": 1, "generate": 2}
     engine.close()
+
+
+def test_funasr_nonfinite_millisecond_intervals_are_unverified():
+    text, words, characters, warnings = normalize_paraformer_result({
+        "text": "你好。", "raw_text": "你 好",
+        "timestamp": [[0, 200], [float("inf"), float("inf")]],
+    })
+    assert text == "你好。"
+    assert all(word.start is None for word in words)
+    assert warnings

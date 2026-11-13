@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import math
 from pathlib import Path
 from typing import Any
 
@@ -53,7 +54,8 @@ def intervals_ms(raw: object) -> list[tuple[float, float]] | None:
         start, end = pair[:2]
         if (isinstance(start, bool) or isinstance(end, bool)
                 or not isinstance(start, (int, float))
-                or not isinstance(end, (int, float)) or not 0 <= start <= end):
+                or not isinstance(end, (int, float)) or not math.isfinite(start) or not math.isfinite(end)
+                or not 0 <= start <= end):
             return None
         result.append((float(start) / 1000, float(end) / 1000))
     return result
