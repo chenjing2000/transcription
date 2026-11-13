@@ -90,3 +90,39 @@ def test_leading_space_does_not_shift_word_character_offsets():
     assert [(w.char_start, w.char_end) for w in words] == [(0, 5), (6, 12)]
     assert [text[w.char_start:w.char_end] for w in words] == ["Hello", "world."]
     assert not warnings
+
+
+def test_alignment_failure_preserves_recognized_text(monkeypatch, tmp_path):
+    def fail_alignment(*args, **kwargs):
+        raise RuntimeError("alignment offline")
+    fake = SimpleNamespace(
+        load_model=lambda *a, **k: SimpleNamespace(
+            transcribe=lambda *a, **k: {"segments": [{"text": " Keep everything."}]}),
+        load_audio=lambda p: "decoded",
+        load_align_model=fail_alignment,
+    )
+    monkeypatch.setitem(sys.modules, "whisperx", fake)
+    engine = WhisperXEngine(model_id="large-v3", name="whisperx_large_v3", device="cpu")
+    result = engine.transcribe(tmp_path / "spoken.wav")
+    assert result.text == "Keep everything."
+    assert result.status == "partial"
+    assert not result.words
+    assert any("alignment" in w.lower() for w in result.warnings)
+
+
+def test_alignment_mutation_preserves_original_text(monkeypatch, tmp_path):
+    fake = SimpleNamespace(
+        load_model=lambda *a, **k: SimpleNamespace(
+            transcribe=lambda *a, **k: {"segments": [{"text": "Actual words."}]}),
+        load_audio=lambda p: "decoded",
+        load_align_model=lambda **k: ("model", {}),
+        align=lambda *a, **k: {
+            "segments": [{"text": "Wrong words.", "words": [
+                {"word": "Wrong", "start": 0, "end": 1}]}]},
+    )
+    monkeypatch.setitem(sys.modules, "whisperx", fake)
+    engine = WhisperXEngine(model_id="large-v3", name="whisperx_large_v3", device="cpu")
+    result = engine.transcribe(tmp_path / "spoken.wav")
+    assert result.text == "Actual words."
+    assert not result.words
+    assert any("changed" in w for w in result.warnings)

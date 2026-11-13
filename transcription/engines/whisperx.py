@@ -112,6 +112,10 @@ class WhisperXEngine(BaseEngine):
                 source_path=file_path, device=self.device, text="",
                 warnings=["Empty speech result"],
             )
+        # Recognition is authoritative. If the alignment model fails or
+        # unexpectedly changes the transcript, preserve all recognized words
+        # rather than throwing away usable ASR output.
+        canonical_text, _, _ = _word_entries(segments)
         try:
             if self.align_model is None:
                 self.align_model, self.align_metadata = self._whisperx.load_align_model(
@@ -121,19 +125,22 @@ class WhisperXEngine(BaseEngine):
                 segments, self.align_model, self.align_metadata, audio, self.device,
                 return_char_alignments=False,
             )
+            text, words, warnings = _word_entries(list(aligned.get("segments") or []))
+            if text != canonical_text:
+                text, words, _ = _word_entries(segments)
+                warnings = ["Alignment changed recognized text; original transcript retained without word timing"]
         except Exception as exc:
-            raise TranscriptionError("ALIGNMENT_FAILED", f"WhisperX word alignment failed: {exc}") from exc
-
-        text, words, warnings = _word_entries(list(aligned.get("segments") or []))
+            text, words, _ = _word_entries(segments)
+            warnings = [f"Word alignment unavailable; original recognized text retained: {type(exc).__name__}: {exc}"]
         if not text:
-            raise TranscriptionError("ALIGNMENT_FAILED", "Aligned result has no transcript text")
+            raise TranscriptionError("TRANSCRIPTION_FAILED", "Recognition produced no text")
         if not words:
-            warnings.append("No words could be mapped to transcript character offsets")
+            warnings.append("No aligned word entries; timestamps unavailable")
         # Text processing and structured exports are Phase 6; a single paragraph
         # here is an honest interim result, not semantic paragraph segmentation.
         sentence = Sentence(text=text, char_start=0, char_end=len(text))
         return TranscriptionResult(
-            status="partial", info="English recognition complete; file export not implemented yet",
+            status="partial", info="English recognition complete; export handled by public API",
             engine=self.name, source_path=file_path, device=self.device,
             text=text, words=words, sentences=[sentence],
             paragraphs=[Paragraph(text=text, sentences=[sentence])],
