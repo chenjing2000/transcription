@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from math import isfinite
 
 from transcription.errors import TranscriptionError
 from transcription.result import Paragraph, Sentence, TranscriptionResult
@@ -63,6 +64,23 @@ def structure_result(result: TranscriptionResult) -> None:
             if (char.char_index < 0 or char.char_index >= len(text)
                     or text[char.char_index] != char.text):
                 raise TranscriptionError("INVALID_ALIGNMENT", "Character position mismatch")
+    previous_start = -1
+    for word in result.words:
+        if word.char_start < previous_start:
+            raise TranscriptionError("INVALID_ALIGNMENT", "Words are not in textual order")
+        previous_start = word.char_start
+        if word.start is not None and (
+                not isfinite(word.start) or not isfinite(word.end)
+                or word.start < 0 or word.end < word.start):
+            raise TranscriptionError("INVALID_ALIGNMENT", "Word timing is not finite or ordered")
+    if result.characters is not None:
+        for char in result.characters:
+            if char.start is not None and (
+                    char.end is None or not isfinite(char.start) or not isfinite(char.end)
+                    or char.start < 0 or char.end < char.start):
+                raise TranscriptionError("INVALID_ALIGNMENT", "Invalid character timing")
+            if (char.start is None) != (char.end is None):
+                raise TranscriptionError("INVALID_ALIGNMENT", "Half-present character timestamp")
     result.sentences = split_sentences(text)
     result.paragraphs = build_paragraphs(text, result.sentences)
     if not result.words and not any("word" in x.lower() for x in result.warnings):

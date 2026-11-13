@@ -122,3 +122,14 @@ def test_no_speech_is_not_published(tmp_path):
 def test_output_name_mapping():
     assert _names("sample", ".m4a", 2)["audio"] == "sample (2).m4a"
     assert _names("sample", None, 0)["json"] == "sample.json"
+
+
+def test_rejects_nonfinite_character_timestamp(tmp_path):
+    src = tmp_path / "broken.wav"
+    src.write_bytes(b"audio")
+    result = sample(src)
+    result.characters = [Character("H", 0, float("nan"), 1.0, "aligned")]
+    with pytest.raises(TranscriptionError) as err:
+        publish_result(result, prepared(src))
+    assert err.value.code == "INVALID_ALIGNMENT"
+    assert not (tmp_path / "transcript results").exists()

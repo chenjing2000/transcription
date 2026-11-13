@@ -1,0 +1,36 @@
+name: Optional ASR dependency import smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/asr-dependency-smoke.yml'
+
+jobs:
+  dependency-import:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [whisperx, funasr]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Upgrade installer
+        run: python -m pip install --upgrade pip setuptools wheel
+      - name: Install one optional ASR stack (no checkpoint downloads)
+        run: python -m pip install --prefer-binary ${{ matrix.engine }}
+      - name: Verify PyTorch and chosen ASR imports
+        shell: pwsh
+        run: |
+          python -c "import torch; print('torch:', torch.__version__, 'CUDA build:', torch.version.cuda, 'CUDA available:', torch.cuda.is_available())"
+          if ('${{ matrix.engine }}' -eq 'whisperx') {
+            python -c "import whisperx; print('WhisperX import OK; load_model:', callable(whisperx.load_model))"
+          } else {
+            python -c "from funasr import AutoModel; print('FunASR import OK; AutoModel:', AutoModel)"
+          }
+      - name: Check installed dependency conflicts
+        run: python -m pip check

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from math import isfinite
 from pathlib import Path
 from typing import Literal
 
@@ -32,7 +33,7 @@ class Word:
             raise ValueError("Invalid half-open character span")
         if (self.start is None) != (self.end is None):
             raise ValueError("Word timestamps must both exist or both be absent")
-        if self.start is not None and (self.start < 0 or self.end < self.start):
+        if self.start is not None and (not isfinite(self.start) or not isfinite(self.end) or self.start < 0 or self.end < self.start):
             raise ValueError("Invalid word timestamps")
         if self.start is None and self.alignment_status != "missing":
             raise ValueError("Missing timestamps must be marked missing")

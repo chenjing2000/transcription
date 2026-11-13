@@ -45,6 +45,7 @@ def test_mocked_funasr_load_and_reuse(monkeypatch, tmp_path):
         def generate(self, **kw):
             record["generate"] += 1
             assert kw["return_raw_text"] is True
+            assert kw["output_timestamp"] is True
             return [{"text": "你好。", "raw_text": "你 好",
                      "timestamp": [[100, 220], [220, 380]]}]
     def fake_auto_model(**kwargs):

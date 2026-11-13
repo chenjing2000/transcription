@@ -16,3 +16,9 @@ def test_valid_word():
 def test_bad_word(args):
     with pytest.raises(ValueError):
         Word(*args)
+
+
+def test_word_rejects_nonfinite_timing():
+    for value in (float("nan"), float("inf"), -float("inf")):
+        with pytest.raises(ValueError):
+            Word("x", value, value, 0, 1, "aligned")

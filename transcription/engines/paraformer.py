@@ -144,7 +144,7 @@ class ParaformerEngine(BaseEngine):
             output = self.pipeline.generate(
                 input=str(file_path), batch_size_s=60,
                 batch_size_threshold_s=30, return_raw_text=True,
-                sentence_timestamp=True,
+                sentence_timestamp=True, output_timestamp=True,
             )
         except Exception as exc:
             raise TranscriptionError("TRANSCRIPTION_FAILED", f"Paraformer recognition failed: {exc}") from exc
