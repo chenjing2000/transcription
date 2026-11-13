@@ -17,7 +17,7 @@ jobs:
         language: [english, chinese]
     env:
       TRANSCRIPTION_ENABLE_REAL_SPEECH: '1'
-      TRANSCRIPTION_SPEECH_DIR: ${{ runner.temp }}/transcription-speech
+      TRANSCRIPTION_SPEECH_DIR: ${{ github.workspace }}/transcription-speech
       OMP_NUM_THREADS: '4'
     steps:
       - uses: actions/checkout@v4
@@ -71,5 +71,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: real-speech-${{ matrix.language }}
-          path: ${{ runner.temp }}/transcription-speech/*-report.json
+          path: ${{ github.workspace }}/transcription-speech/*-report.json
           if-no-files-found: ignore
