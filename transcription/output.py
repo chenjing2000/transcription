@@ -58,8 +58,16 @@ def _unique_names(folder: Path, stem: str, ext: str | None) -> dict[str, str]:
 
 
 def _safe_copy(src: Path, dest: Path) -> None:
-    with src.open("rb") as input_file, dest.open("xb") as output_file:
-        shutil.copyfileobj(input_file, output_file, length=1024 * 1024)
+    # Opening with xb is the ownership boundary: only clean up files opened
+    # by this attempt, never an existing path that caused FileExistsError.
+    with src.open("rb") as input_file:
+        with dest.open("xb") as output_file:
+            try:
+                shutil.copyfileobj(input_file, output_file, length=1024 * 1024)
+            except BaseException:
+                output_file.close()
+                dest.unlink(missing_ok=True)
+                raise
 
 
 def publish_result(result: TranscriptionResult, prepared: PreparedAudio) -> TranscriptionResult:
@@ -103,16 +111,7 @@ def publish_result(result: TranscriptionResult, prepared: PreparedAudio) -> Tran
                 try:
                     for key, name in filenames.items():
                         destination = folder / name
-                        try:
-                            _safe_copy(staging_files[key], destination)
-                        except Exception:
-                            # The exclusive-open file may have been partially copied.
-                            if destination.exists() and destination not in created:
-                                # Do not delete an independently created file on collision.
-                                # If this task created it, the helper adds it to created
-                                # before subsequent operations.
-                                pass
-                            raise
+                        _safe_copy(staging_files[key], destination)
                         created.append(destination)
                 except Exception:
                     for path in reversed(created):
