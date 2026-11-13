@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: [whisperx, funasr]
+        engine: [whisperx, funasr, combined]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,16 +21,31 @@ jobs:
           python-version: '3.11'
       - name: Upgrade installer
         run: python -m pip install --upgrade pip setuptools wheel
-      - name: Install one optional ASR stack (no checkpoint downloads)
-        run: python -m pip install --prefer-binary ${{ matrix.engine }}
+      - name: Install ASR dependencies without model weights
+        shell: pwsh
+        run: |
+          if ('${{ matrix.engine }}' -eq 'funasr') {
+            # FunASR currently does not declare torch as an install requirement.
+            python -m pip install --prefer-binary torch torchaudio
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            python -m pip install --prefer-binary funasr
+          } elseif ('${{ matrix.engine }}' -eq 'combined') {
+            python -m pip install --prefer-binary whisperx funasr
+          } else {
+            python -m pip install --prefer-binary whisperx
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify PyTorch and chosen ASR imports
         shell: pwsh
         run: |
           python -c "import torch; print('torch:', torch.__version__, 'CUDA build:', torch.version.cuda, 'CUDA available:', torch.cuda.is_available())"
-          if ('${{ matrix.engine }}' -eq 'whisperx') {
+          if ('${{ matrix.engine }}' -ne 'funasr') {
             python -c "import whisperx; print('WhisperX import OK; load_model:', callable(whisperx.load_model))"
-          } else {
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          if ('${{ matrix.engine }}' -ne 'whisperx') {
             python -c "from funasr import AutoModel; print('FunASR import OK; AutoModel:', AutoModel)"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
       - name: Check installed dependency conflicts
         run: python -m pip check
