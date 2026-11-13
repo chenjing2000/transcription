@@ -70,56 +70,67 @@ def _safe_copy(src: Path, dest: Path) -> None:
                 raise
 
 
+def _stage_files(stage: Path, result: TranscriptionResult,
+                 prepared: PreparedAudio) -> dict[str, Path]:
+    """Render each payload once, then verify all required staged artifacts."""
+    staged = {
+        "timed_json": stage / "timed.json",
+        "timed_txt": stage / "timed.txt",
+        "json": stage / "plain.json",
+        "txt": stage / "plain.txt",
+    }
+    staged["timed_json"].write_text(
+        serialize_json(result, prepared, timed=True), encoding="utf-8")
+    staged["timed_txt"].write_text(timed_txt(result), encoding="utf-8")
+    staged["json"].write_text(
+        serialize_json(result, prepared, timed=False), encoding="utf-8")
+    staged["txt"].write_text(plain_txt(result), encoding="utf-8")
+    if prepared.extracted:
+        staged["audio"] = stage / ("audio" + prepared.audio_path.suffix)
+        shutil.copyfile(prepared.audio_path, staged["audio"])
+    for artifact in staged.values():
+        if not artifact.is_file() or artifact.stat().st_size == 0:
+            raise TranscriptionError("OUTPUT_FAILED", f"Missing or empty staged artifact: {artifact}")
+    return staged
+
+
+def _publish_files(folder: Path, stem: str, audio_extension: str | None,
+                   staged: dict[str, Path]) -> dict[str, Path]:
+    """Reserve a shared suffix, exclusively create all files, rollback on errors."""
+    with _directory_lock(folder):
+        names = _unique_names(folder, stem, audio_extension)
+        created: list[Path] = []
+        try:
+            for key, filename in names.items():
+                target = folder / filename
+                _safe_copy(staged[key], target)
+                created.append(target)
+        except Exception:
+            for target in reversed(created):
+                target.unlink(missing_ok=True)
+            raise
+        return {key: folder / filename for key, filename in names.items()}
+
+
 def publish_result(result: TranscriptionResult, prepared: PreparedAudio) -> TranscriptionResult:
-    """Generate and publish four files plus original-codec audio for video input."""
-    structure_result(result)
+    """Publish the four transcript files plus original-codec video audio."""
     if result.status == "failed":
         raise TranscriptionError("TRANSCRIPTION_FAILED", "Cannot publish a failed recognition result")
+    structure_result(result)
     result.status = "partial" if result.warnings else "success"
-    result.info = ("Published with warnings" if result.warnings else "Transcription and export completed")
+    result.info = "Published with warnings" if result.warnings else "Transcription and export completed"
     folder = result.source_path.parent / "transcript results"
     try:
         folder.mkdir(exist_ok=True)
         with TemporaryDirectory(prefix=".transcription-stage-", dir=folder) as work:
-            stage = Path(work)
-            staging_files = {
-                "timed_json": stage / "timed.json",
-                "timed_txt": stage / "timed.txt",
-                "json": stage / "plain.json",
-                "txt": stage / "plain.txt",
-            }
-            staging_files["timed_json"].write_text(
-                serialize_json(result, prepared, timed=True), encoding="utf-8")
-            staging_files["timed_txt"].write_text(timed_txt(result), encoding="utf-8")
-            staging_files["json"].write_text(
-                serialize_json(result, prepared, timed=False), encoding="utf-8")
-            staging_files["txt"].write_text(plain_txt(result), encoding="utf-8")
-            if prepared.extracted:
-                staging_files["audio"] = stage / ("audio" + prepared.audio_path.suffix)
-                shutil.copyfile(prepared.audio_path, staging_files["audio"])
-
-            for file in staging_files.values():
-                if not file.is_file() or file.stat().st_size == 0:
-                    raise TranscriptionError("OUTPUT_FAILED", "Missing or empty staging artifact: " + str(file))
-
-            with _directory_lock(folder):
-                filenames = _unique_names(
-                    folder, result.source_path.stem,
-                    prepared.audio_path.suffix if prepared.extracted else None,
-                )
-                created: list[Path] = []
-                try:
-                    for key, name in filenames.items():
-                        destination = folder / name
-                        _safe_copy(staging_files[key], destination)
-                        created.append(destination)
-                except Exception:
-                    for path in reversed(created):
-                        path.unlink(missing_ok=True)
-                    raise
+            staged = _stage_files(Path(work), result, prepared)
+            paths = _publish_files(
+                folder, result.source_path.stem,
+                prepared.audio_path.suffix if prepared.extracted else None, staged,
+            )
         result.output_dir = folder
-        result.files = {key: folder / name for key, name in filenames.items()}
-        result.audio_path = result.files["audio"] if prepared.extracted else result.source_path
+        result.files = paths
+        result.audio_path = paths["audio"] if prepared.extracted else result.source_path
         return result
     except TranscriptionError:
         raise

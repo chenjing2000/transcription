@@ -14,11 +14,15 @@ class FakeEngine(BaseEngine):
         self.closed = True
 
 
+def use(manager, key="a", device="cpu"):
+    return manager.run(key, device, FakeEngine, lambda adapter: adapter)
+
+
 def test_reuse_and_release_on_switch():
     manager = ModelManager()
-    first = manager.get_or_load("a", "cpu", FakeEngine)
-    assert manager.get_or_load("a", "cpu", FakeEngine) is first
-    second = manager.get_or_load("b", "cpu", FakeEngine)
+    first = use(manager)
+    assert use(manager) is first
+    second = use(manager, "b")
     assert second is not first
     assert first.closed
     manager.release()
@@ -27,8 +31,37 @@ def test_reuse_and_release_on_switch():
 
 def test_device_change_reloads():
     manager = ModelManager()
-    old = manager.get_or_load("a", "cpu", FakeEngine)
-    new = manager.get_or_load("a", "gpu", FakeEngine)
+    old = use(manager)
+    new = use(manager, "a", "gpu")
     assert old.closed
     assert new is not old
+    manager.release()
+
+
+def test_switch_does_not_release_engine_during_inference():
+    manager = ModelManager()
+    first = use(manager)
+    def operation(adapter):
+        assert adapter is first
+        assert not adapter.closed
+        return "completed"
+    assert manager.run("a", "cpu", FakeEngine, operation) == "completed"
+    assert first.closed is False
+    manager.release()
+
+
+def test_failed_factory_does_not_retain_old_model():
+    manager = ModelManager()
+    old = use(manager)
+    def fail():
+        raise RuntimeError("load failed")
+    try:
+        manager.run("b", "cpu", fail, lambda adapter: None)
+    except RuntimeError:
+        pass
+    else:
+        assert False, "Expected load failure"
+    assert old.closed
+    newer = use(manager)
+    assert newer is not old
     manager.release()

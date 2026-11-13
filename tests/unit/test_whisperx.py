@@ -127,3 +127,25 @@ def test_alignment_mutation_preserves_original_text(monkeypatch, tmp_path):
     assert result.text == "Actual words."
     assert not result.words
     assert any("changed" in w for w in result.warnings)
+
+
+def test_failed_alignment_does_not_treat_asr_segment_times_as_word_alignment(monkeypatch, tmp_path):
+    fake = SimpleNamespace(
+        load_model=lambda *a, **k: SimpleNamespace(
+            transcribe=lambda *a, **k: {"segments": [{
+                "text": " Spoken text.", "words": [
+                    {"word": "Spoken", "start": .1, "end": .5},
+                    {"word": "text.", "start": .5, "end": 1.0},
+                ],
+            }]}),
+        load_audio=lambda p: "audio",
+        load_align_model=lambda **k: (_ for _ in ()).throw(RuntimeError("alignment unavailable")),
+    )
+    monkeypatch.setitem(sys.modules, "whisperx", fake)
+    engine = WhisperXEngine(model_id="large-v3", name="whisperx_large_v3", device="cpu")
+    result = engine.transcribe(tmp_path / "test.wav")
+    assert result.text == "Spoken text."
+    assert len(result.words) == 2
+    assert all(w.start is None and w.end is None for w in result.words)
+    assert all(w.alignment_status == "missing" for w in result.words)
+    assert any("alignment" in msg.lower() for msg in result.warnings)

@@ -25,11 +25,6 @@ class ModelManager:
         self._key = key
         return instance
 
-    def get_or_load(self, name: str, device: str, factory: Callable[[], BaseEngine]) -> BaseEngine:
-        """Legacy convenience method. Prefer run() for thread-safe inference."""
-        with self._lock:
-            return self._get_unlocked(name, device, factory)
-
     def run(self, name: str, device: str, factory: Callable[[], BaseEngine],
             operation: Callable[[BaseEngine], _T]) -> _T:
         """Hold the manager lock throughout inference to prevent mid-run unloading."""

@@ -1,8 +1,8 @@
 """FunASR Paraformer adapter: lazy VAD/ASR/punctuation and conservative timing."""
 from __future__ import annotations
 
-import re
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -96,23 +96,24 @@ def normalize_paraformer_result(record: dict[str, Any]) -> tuple[str, list[Word]
     warnings: list[str] = []
     if not verified:
         warnings.append("Character timestamps unverified: raw token alignment missing or mismatched")
-    indexed: dict[int, tuple[float, float]] = {}
+    by_char: dict[int, tuple[float, float]] = {}
     token_times: dict[tuple[int, int], tuple[float, float]] = {}
-    characters: list[Character] = []
     if verified:
         for (token, begin, end), pair in zip(units, intervals):
             token_times[(begin, end)] = pair
             if len(token) == 1 and is_han(token):
-                indexed[begin] = pair
-                characters.append(Character(token, begin, pair[0], pair[1], "aligned"))
-    else:
-        characters = [Character(text[i], i) for i, c in enumerate(text) if HAN.fullmatch(c)]
+                by_char[begin] = pair
+    characters = [
+        Character(text[i], i, *by_char[i], "aligned") if i in by_char
+        else Character(text[i], i)
+        for i, ch in enumerate(text) if HAN.fullmatch(ch)
+    ]
     words: list[Word] = []
     for token, begin, end in word_spans(text):
         pair = None
         if verified:
-            if is_han(token) and all(i in indexed for i in range(begin, end)):
-                pair = (indexed[begin][0], indexed[end - 1][1])
+            if is_han(token) and all(i in by_char for i in range(begin, end)):
+                pair = (by_char[begin][0], by_char[end - 1][1])
             else:
                 pair = token_times.get((begin, end))
         words.append(Word(

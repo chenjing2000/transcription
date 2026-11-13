@@ -32,13 +32,15 @@ def _word_entries(segments: list[dict[str, Any]]) -> tuple[str, list[Word], list
     chunks: list[str] = []
     spans: list[Word] = []
     warnings: list[str] = []
+    length = 0
     for segment in segments:
         piece = str(segment.get("text") or "")
         if not piece:
             continue
         prefix = " " if chunks and not piece[0].isspace() and not chunks[-1].endswith((" ", "\n")) else ""
-        offset = sum(map(len, chunks)) + len(prefix)
+        offset = length + len(prefix)
         chunks.extend((prefix, piece))
+        length = offset + len(piece)
         cursor = 0
         for item in segment.get("words") or []:
             raw = str(item.get("word") or "")
@@ -118,7 +120,13 @@ class WhisperXEngine(BaseEngine):
         # Recognition is authoritative. If the alignment model fails or
         # unexpectedly changes the transcript, preserve all recognized words
         # rather than throwing away usable ASR output.
-        canonical_text, _, _ = _word_entries(segments)
+        canonical_text, original_words, _ = _word_entries(segments)
+        # Original ASR segments may carry coarse times, but they do not
+        # demonstrate successful forced alignment.
+        for word in original_words:
+            word.start = None
+            word.end = None
+            word.alignment_status = "missing"
         try:
             if self.align_model is None:
                 self.align_model, self.align_metadata = self._whisperx.load_align_model(
@@ -130,10 +138,10 @@ class WhisperXEngine(BaseEngine):
             )
             text, words, warnings = _word_entries(list(aligned.get("segments") or []))
             if text != canonical_text:
-                text, words, _ = _word_entries(segments)
+                text, words = canonical_text, original_words
                 warnings = ["Alignment changed recognized text; original transcript retained without word timing"]
         except Exception as exc:
-            text, words, _ = _word_entries(segments)
+            text, words = canonical_text, original_words
             warnings = [f"Word alignment unavailable; original recognized text retained: {type(exc).__name__}: {exc}"]
         if not text:
             raise TranscriptionError("TRANSCRIPTION_FAILED", "Recognition produced no text")
