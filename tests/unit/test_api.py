@@ -15,11 +15,11 @@ def test_unsupported_file(tmp_path):
     assert result.error_code == "UNSUPPORTED_FORMAT"
 
 
-def test_not_implemented_is_explicit(tmp_path):
+def test_missing_optional_funasr_dependency_is_explicit(tmp_path):
     path = tmp_path / "sample.wav"
     path.write_bytes(b"sample")
     result = transcribe(path, engine="paraformer_zh")
-    assert result.error_code == "NOT_IMPLEMENTED"
+    assert result.error_code == "DEPENDENCY_MISSING"
     assert result.status == "failed"
 
 
