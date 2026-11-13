@@ -1,0 +1,75 @@
+name: Real English and Mandarin speech CPU acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/real-speech-cpu.yml'
+      - 'tests/integration/test_real_speech_cpu.py'
+
+jobs:
+  real-speech:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [english, chinese]
+    env:
+      TRANSCRIPTION_ENABLE_REAL_SPEECH: '1'
+      TRANSCRIPTION_SPEECH_DIR: ${{ runner.temp }}/transcription-speech
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Ensure FFmpeg and FFprobe
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue) -or -not (Get-Command ffprobe -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg -y --no-progress
+          }
+          ffmpeg -version
+      - name: Install transcription and selected real ASR engine
+        shell: pwsh
+        run: |
+          python -m pip install -e ".[test]"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ('${{ matrix.language }}' -eq 'english') {
+            python -m pip install whisperx==3.8.6
+          } else {
+            python -m pip install torch torchaudio funasr==1.4.26
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retrieve publicly documented speech fixture
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:TRANSCRIPTION_SPEECH_DIR | Out-Null
+          if ('${{ matrix.language }}' -eq 'english') {
+            $url = 'https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac'
+            $flac = Join-Path $env:TRANSCRIPTION_SPEECH_DIR 'jfk.flac'
+            Invoke-WebRequest -Uri $url -OutFile $flac -ErrorAction Stop
+            ffmpeg -hide_banner -loglevel error -y -i $flac -ac 1 -ar 16000 (Join-Path $env:TRANSCRIPTION_SPEECH_DIR 'jfk.wav')
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else {
+            $url = 'https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/MaaS/ASR/test_audio/asr_example_zh.wav'
+            Invoke-WebRequest -Uri $url -OutFile (Join-Path $env:TRANSCRIPTION_SPEECH_DIR 'asr_example_zh.wav') -ErrorAction Stop
+          }
+      - name: Run real speech and timing acceptance
+        shell: pwsh
+        run: |
+          if ('${{ matrix.language }}' -eq 'english') {
+            python -m pytest tests/integration/test_real_speech_cpu.py::test_real_english_speech_recognition_and_word_alignment -m real_speech -vv
+          } else {
+            python -m pytest tests/integration/test_real_speech_cpu.py::test_real_chinese_speech_recognition_and_timestamp_reporting -m real_speech -vv
+          }
+      - name: Upload diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-speech-${{ matrix.language }}
+          path: ${{ runner.temp }}/transcription-speech/*-report.json
+          if-no-files-found: ignore

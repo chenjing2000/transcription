@@ -17,4 +17,4 @@ include = ["transcription*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["hardware: requires explicitly configured real ASR models and test audio", "real_model: opt-in tiny.en CPU model smoke requiring download"]
+markers = ["hardware: requires explicitly configured real ASR models and test audio", "real_model: opt-in tiny.en CPU model smoke requiring download", "real_speech: opt-in real English/Mandarin speech CPU model acceptance"]
