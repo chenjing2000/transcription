@@ -8,12 +8,14 @@ from typing import Any
 
 from transcription.engines.base import BaseEngine
 from transcription.errors import TranscriptionError
-from transcription.result import Character, EngineInfo, Paragraph, Sentence, TranscriptionResult, Word
+from transcription.result import Character, EngineInfo, TranscriptionResult, Word
 
 ENGINE_SPECS = (EngineInfo(
     name="paraformer_zh", model_id="paraformer-zh", language="zh",
     description="FunASR Paraformer with FSMN-VAD and CT punctuation",
 ),)
+
+ENGINE_CLASS = "ParaformerEngine"
 
 HAN = re.compile(r"[\u3400-\u9fff]")
 LEXEME = re.compile(r"[\u3400-\u9fff]+|[A-Za-z]+(?:['’-][A-Za-z]+)*|\d+(?:\.\d+)?|[^\s]")
@@ -158,12 +160,10 @@ class ParaformerEngine(BaseEngine):
                 status="partial", info="No speech detected", engine=self.name,
                 source_path=file_path, device=self.device, warnings=["Empty speech result"],
             )
-        sentence = Sentence(text, 0, len(text))
         return TranscriptionResult(
             status="partial", info="Chinese recognition complete; file export not yet implemented",
             engine=self.name, source_path=file_path, device=self.device,
             text=text, words=words, characters=characters,
-            sentences=[sentence], paragraphs=[Paragraph(text, [sentence])],
             warnings=warnings,
         )
 

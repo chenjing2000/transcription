@@ -58,6 +58,7 @@ def test_mocked_funasr_load_and_reuse(monkeypatch, tmp_path):
     engine = ParaformerEngine(model_id="paraformer-zh", name="paraformer_zh", device="cpu")
     result = engine.transcribe(tmp_path / "sample.wav")
     assert result.text == "你好。"
+    assert result.sentences == [] and result.paragraphs == []
     assert len(result.characters) == 2
     assert [w.start for w in result.words] == [.1, .22]
     engine.transcribe(tmp_path / "sample.wav")

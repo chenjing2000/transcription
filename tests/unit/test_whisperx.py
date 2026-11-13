@@ -50,6 +50,7 @@ def test_english_model_lazily_loads_and_aligns(monkeypatch, tmp_path):
     result = engine.transcribe(path)
     assert result.status == "partial"
     assert result.text == "Hello world."
+    assert result.sentences == [] and result.paragraphs == []
     assert len(result.words) == 2
     assert result.words[1].char_start == 6
     engine.transcribe(path)

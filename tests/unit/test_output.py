@@ -128,7 +128,9 @@ def test_rejects_nonfinite_character_timestamp(tmp_path):
     src = tmp_path / "broken.wav"
     src.write_bytes(b"audio")
     result = sample(src)
-    result.characters = [Character("H", 0, float("nan"), 1.0, "aligned")]
+    invalid = Character("H", 0, 0.2, 1.0, "aligned")
+    invalid.start = float("nan")  # Mutation after construction is still caught at publication.
+    result.characters = [invalid]
     with pytest.raises(TranscriptionError) as err:
         publish_result(result, prepared(src))
     assert err.value.code == "INVALID_ALIGNMENT"

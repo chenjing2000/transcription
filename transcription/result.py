@@ -47,6 +47,18 @@ class Character:
     end: float | None = None
     alignment_status: AlignmentStatus = "missing"
 
+    def __post_init__(self) -> None:
+        if len(self.text) != 1 or self.char_index < 0:
+            raise ValueError("Invalid character or index")
+        if (self.start is None) != (self.end is None):
+            raise ValueError("Character timestamps must both exist or both be absent")
+        if self.start is not None and (
+            not isfinite(self.start) or not isfinite(self.end)
+            or self.start < 0 or self.end < self.start
+        ):
+            raise ValueError("Invalid character timestamps")
+        if self.start is None and self.alignment_status != "missing":
+            raise ValueError("Missing character timestamps must be marked missing")
 
 @dataclass(slots=True)
 class Sentence:

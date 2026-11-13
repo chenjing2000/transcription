@@ -9,7 +9,7 @@ from typing import Any
 
 from transcription.engines.base import BaseEngine
 from transcription.errors import TranscriptionError
-from transcription.result import EngineInfo, Paragraph, Sentence, TranscriptionResult, Word
+from transcription.result import EngineInfo, TranscriptionResult, Word
 
 ENGINE_SPECS = (
     EngineInfo(
@@ -19,6 +19,9 @@ ENGINE_SPECS = (
         description="WhisperX large-v3 English with forced word alignment",
     ),
 )
+
+
+ENGINE_CLASS = "WhisperXEngine"
 
 
 def _word_entries(segments: list[dict[str, Any]]) -> tuple[str, list[Word], list[str]]:
@@ -136,14 +139,10 @@ class WhisperXEngine(BaseEngine):
             raise TranscriptionError("TRANSCRIPTION_FAILED", "Recognition produced no text")
         if not words:
             warnings.append("No aligned word entries; timestamps unavailable")
-        # Text processing and structured exports are Phase 6; a single paragraph
-        # here is an honest interim result, not semantic paragraph segmentation.
-        sentence = Sentence(text=text, char_start=0, char_end=len(text))
         return TranscriptionResult(
             status="partial", info="English recognition complete; export handled by public API",
             engine=self.name, source_path=file_path, device=self.device,
-            text=text, words=words, sentences=[sentence],
-            paragraphs=[Paragraph(text=text, sentences=[sentence])],
+            text=text, words=words,
             warnings=warnings,
         )
 

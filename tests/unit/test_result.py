@@ -1,5 +1,5 @@
 import pytest
-from transcription.result import Word
+from transcription.result import Word, Character
 
 
 def test_valid_word():
@@ -22,3 +22,15 @@ def test_word_rejects_nonfinite_timing():
     for value in (float("nan"), float("inf"), -float("inf")):
         with pytest.raises(ValueError):
             Word("x", value, value, 0, 1, "aligned")
+
+
+def test_character_timestamp_invariants():
+    for args in [
+        ("你", -1, None, None, "missing"),
+        ("你好", 0, None, None, "missing"),
+        ("你", 0, 0.2, None, "missing"),
+        ("你", 0, float("inf"), 1.0, "aligned"),
+        ("你", 0, None, None, "aligned"),
+    ]:
+        with pytest.raises(ValueError):
+            Character(*args)
