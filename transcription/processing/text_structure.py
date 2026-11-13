@@ -10,6 +10,31 @@ from transcription.result import Paragraph, Sentence, TranscriptionResult
 _END = re.compile(r'[.!?。！？]+(?:[”’"\u201d\u2019])?(?=\s|$|[^.!?。！？])')
 
 
+_TITLES = frozenset({"mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st"})
+
+
+def _nonterminal_period(text: str, start: int, end: int) -> bool:
+    """Skip decimals, common English titles, and initials within abbreviations."""
+    if text[start:end] != ".":
+        return False
+    if 0 < start < len(text) - 1 and text[start - 1].isdigit() and text[start + 1].isdigit():
+        return True
+    previous = re.search(r"([A-Za-z]+)$", text[:start])
+    if previous and previous.group(1).lower() in _TITLES:
+        return True
+    # Internal dot of U.S., A.B., etc.
+    if start >= 1 and text[start - 1].isalpha() and start + 2 < len(text):
+        if text[start + 1].isalpha() and text[start + 2] == ".":
+            return True
+    # Final dot in "U.S. economy" is not terminal; in "U.S. Next" it is.
+    if start >= 3 and text[start - 1].isalpha():
+        if re.search(r"(?:[A-Za-z]\.){1,}[A-Za-z]$", text[:start]):
+            tail = text[end:].lstrip()
+            if tail and tail[0].islower():
+                return True
+    return False
+
+
 def split_sentences(text: str) -> list[Sentence]:
     """Split at terminal punctuation without rewriting the source string."""
     if not text.strip():
@@ -17,6 +42,8 @@ def split_sentences(text: str) -> list[Sentence]:
     sentences: list[Sentence] = []
     pos = 0
     for match in _END.finditer(text):
+        if _nonterminal_period(text, match.start(), match.end()):
+            continue
         end = match.end()
         # Include trailing closing punctuation, but not leading whitespace.
         while pos < end and text[pos].isspace():

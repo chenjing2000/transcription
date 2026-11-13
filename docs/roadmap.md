@@ -1,11 +1,20 @@
-# Transcription implementation milestones
+# Implementation and validation status
 
-1. Foundation: public API, result dataclasses and validation. [Implemented]
-2. Registry and model cache: metadata-driven engine discovery, single-active-engine manager. [Framework implemented]
-3. Media: FFprobe metadata, FFmpeg stream-copy and conservative codec mapping. [Basic Windows CI passed]
-4. WhisperX: large-v3 English recognition, forced word alignment. [Mock CI passed; real ASR/GPU unverified]
-5. FunASR: Paraformer Chinese, VAD, punctuation and conservative word/character alignment. [Mock CI passed; real ASR/GPU unverified]
-6. Export: canonical text segmentation, four JSON/TXT files, video original-codec audio, grouped collision numbering, staged publishing and ordinary-error rollback. [Implemented; CI pending]
-7. Complete real-model CPU/GPU integrations, extended audio/video codecs and complex video timebases, model switching and memory profiling. [Pending]
+| Area | Current status |
+| --- | --- |
+| Public API, engine registry, single active model manager | Implemented; Windows unit tests passed |
+| FFprobe and FFmpeg stream-copy audio extraction | Implemented; Windows integration tests passed |
+| English WhisperX adapter with forced word alignment | Implemented; short real `tiny.en` speech CPU test passed |
+| Chinese FunASR Paraformer with VAD/punctuation | Implemented; short real Chinese speech CPU test passed |
+| Four JSON/TXT outputs and video original-codec audio | Implemented; publishing tests passed |
+| Error handling, locking, collision-safe grouped numbering | Implemented; ordinary failure and contention tests |
+| RTX 5060 Ti CUDA execution, large-v3 model loading, bilingual GPU switching | Pending hardware acceptance |
+| Video edit lists/discontinuous media-clock synchronization | Pending specialized media validation |
+| Power-loss/crash-atomic multi-file publishing | Not implemented; documented limitation |
 
-Unverified model interfaces and time alignment quality must not be mistaken for completed end-to-end model acceptance.
+The short CPU speech tests do not constitute acoustic accuracy benchmarks,
+long-recording stability tests, or GPU acceptance.
+
+Code was simplified in three passes without changing the public API or
+published JSON schema. The first two passes passed Windows CI; the third
+adds sentence-edge and publish-contention regression tests.

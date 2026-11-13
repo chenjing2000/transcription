@@ -1,24 +1,42 @@
-# Phase 7 validation boundaries
+# Test and acceptance boundaries
 
-## Automated Windows CPU-only checks
+## Routine Windows CI
 
-- Python 3.11 and 3.12 `pytest`: registry, data contracts, audio stream-copy FFmpeg integration, mock WhisperX/FunASR invocation, four-file output, collision numbering, rollback and character/time validation.
-- The separate **Optional ASR dependency import smoke** workflow installs one optional ASR dependency stack per job on Windows Python 3.11 and imports its API. It intentionally does not download any checkpoints or perform real transcription. See `.github/workflows/asr-dependency-smoke.yml`.
+`.github/workflows/python-tests.yml` tests Python 3.11 and 3.12.
+Tests cover metadata, adapter mocks, model lifecycle, FFmpeg stream-copy,
+canonical text spans, grouped JSON/TXT output, failed writes and publishing
+contention. Four opt-in tests are skipped by default; CI never silently
+downloads multi-gigabyte ASR models.
 
-## Environment inspection
+## Previously successful real CPU tests
 
-Run `python -m transcription.doctor` to print installed optional packages and FFmpeg/FFprobe versions without loading model weights. Missing package is not necessarily broken; actual ASR requires explicit optional installation.
+The workflows `whisperx-cpu-smoke.yml` and `real-speech-cpu.yml`
+have passed on Windows with short real English and Mandarin audio.
+The English speech test uses WhisperX `tiny.en`; the Mandarin sample uses
+FunASR Paraformer. They test functioning recognition and output, not
+word-error-rate benchmarks or English large-v3 GPU readiness.
 
-## Not yet proven
+The optional dependency smoke workflow has separately verified that
+WhisperX and FunASR can be installed and imported together on a Windows
+Python 3.11 runner.
 
-1. Real `whisperx_large_v3` English audio transcription and word alignment (small known-audio sample).
-2. Real `paraformer_zh` Chinese audio transcription with VAD/punctuation and timestamp output.
-3. CUDA PyTorch and ASR model compatibility with RTX 5060 Ti; memory usage after `release_models()`.
-4. Source-video clock mapping for edit lists, discontinuities, variable timebases or nonzero start offsets.
-5. Recovery after sudden process termination or power loss mid multi-file publish.
+## Local GPU test (not yet executed)
 
-A successful dependency import is **not** equivalent to passing any of these real-model or GPU checks.
+Use `python -m transcription.doctor` and
+`python -m transcription.gpu_diagnostics` to inspect the environment,
+then `scripts/run-gpu-acceptance.ps1` for opt-in bilingual
+large-v3 -> Paraformer -> large-v3 switching. See
+`docs/hardware_acceptance.md` for steps and generated reports.
+No successful CPU runner run proves CUDA support or VRAM release.
 
-## Future minimal GPU acceptance
+## Known limitations
 
-Use one short known English recording and one short Mandarin recording. Verify returned `status`, `files`, `words`, missing alignments, timing in a media player, model switching order English -> Chinese -> English, and VRAM before/after release. Do not claim accuracy thresholds until there are reference transcripts.
+- Word and character timestamps remain missing when the model alignment
+  cannot verify them; recorded candidate video offsets are not guaranteed
+  playback synchronization for edit lists or discontinuities.
+- The publisher stages files, uses a cooperative directory lock and
+  exclusive creation, and rolls back ordinary write failures.
+  A sudden process crash can still leave a partial file group or stale lock.
+- Sentence splitting uses lightweight punctuation rules, with limited
+  exceptions for decimals, titles and English initials; it is not a full
+  linguistic sentence boundary detector.

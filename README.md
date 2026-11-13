@@ -1,27 +1,32 @@
 # Transcription
 
-Python audio/video speech transcription framework with extensible engine adapters.
-
-## Current stage
-
-Phase 6: document export pipeline and media stream copy implemented. **Real WhisperX/FunASR model execution, their actual dependency versions, CUDA compatibility and video timebase alignment have not yet been validated on hardware.** Windows CI runs FFmpeg and mocked ASR adapters; it does not download large speech models.
+Python audio/video transcription library with two lazily loaded speech engines:
+English WhisperX (`whisperx_large_v3`) and Mandarin FunASR Paraformer (`paraformer_zh`).
 
 ## Public API
 
 ```python
 from transcription import list_engines, transcribe, release_models
 
-print([engine.name for engine in list_engines()])
-result = transcribe(r"D:\Videos\Lecture.mp4", engine="whisperx_large_v3", device="auto")
-print(result.status, result.info, result.error_code, result.files)
-release_models()
+print([item.name for item in list_engines()])
+try:
+    result = transcribe(
+        r"D:\Videos\Lecture.mp4", engine="whisperx_large_v3",
+        device="auto", audio_track=0,
+    )
+    print(result.status, result.info, result.error_code, result.files)
+finally:
+    release_models()
 ```
 
-Supported inputs: MP4, MKV, MP3, WAV. Engines: `whisperx_large_v3` (English) and `paraformer_zh` (Chinese), with a registry designed for more models. `device` accepts `gpu`, `cpu`, `auto`; `audio_track` is a zero-based audio stream selector.
+The public `transcribe()` API takes MP4, MKV, MP3 or WAV files and returns
+`success`, `partial` (usable transcript with warnings), or `failed` with
+a machine-readable error code. `device` is `auto`, `cpu` or `gpu`;
+`audio_track` is zero-based among audio tracks.
 
-## Development environment
+## Development
 
-Python 3.11/3.12, FFmpeg and FFprobe on PATH. For Windows local development:
+Use Python 3.11 or 3.12, FFmpeg and FFprobe on PATH. From the repository root:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -31,12 +36,31 @@ python -m pytest -q
 python main.py
 ```
 
-Real recognition needs separately installed compatible WhisperX or FunASR, PyTorch, and model weights; see their respective upstream installation guidance: https://github.com/m-bain/whisperX and https://github.com/modelscope/FunASR. These heavy dependencies are intentionally not required by CI.
+Heavy model dependencies and weights are intentionally excluded from the base
+installation. To run real speech models, install a compatible PyTorch,
+[WhisperX](https://github.com/m-bain/whisperX) and/or
+[FunASR](https://github.com/modelscope/FunASR) stack in a dedicated environment.
 
-## Output behavior
+## Output
 
-After actual recognition, files are saved under the source directory's `transcript results` folder. Every run creates `.timed.json`, `.timed.txt`, `.json` and `.txt`. Video additionally saves extracted audio using the **original encoded packets** in a compatible audio container; no re-encoding. Existing files are never overwritten: the entire batch uses a common ` (1)`, ` (2)`, ... suffix.
+After successful recognition, `transcript results` is created beside the
+input file. Each run publishes `.timed.json`, `.timed.txt`, `.json`, and
+`.txt`; video additionally publishes its extracted original-codec audio
+(no re-encoding). A shared numeric suffix ` (1)`, ` (2)`, ... prevents
+overwriting previous output groups. Times that cannot be verified are
+explicitly missing rather than synthesized.
 
-Returns `success` for completed output without warnings, `partial` for valid output with alignment/timeline warnings, and `failed` for errors. Incomplete timing is explicit rather than guessed.
+## Validation status
 
-See `docs/architecture.md`, `docs/output_schema.md`, `docs/media.md`, `docs/whisperx.md`, `docs/paraformer.md`, `docs/roadmap.md`.
+- Windows Python 3.11/3.12 unit and FFmpeg integration checks run on pushes.
+- Real short **English tiny.en** and **Mandarin Paraformer** speech inference
+  succeeded on CPU CI, including transcript publishing and timestamp coverage
+  for those samples.
+- English **large-v3 GPU inference**, bilingual GPU model switching, physical
+  VRAM release, and complex video time-base synchronization remain unverified.
+- Publishing rolls back ordinary failures and avoids overwriting other files.
+  It does **not** promise crash-atomic multi-file transactions.
+
+See [roadmap](docs/roadmap.md), [validation boundaries](docs/validation.md),
+[output format](docs/output_schema.md), [architecture](docs/architecture.md),
+and [GPU acceptance](docs/hardware_acceptance.md).

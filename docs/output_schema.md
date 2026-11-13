@@ -1,4 +1,4 @@
-# Transcript output schema — Phase 6
+# Transcript output schema
 
 Input `D:/Media/Lecture.mp4` saves a group to `D:/Media/transcript results/`:
 
@@ -16,7 +16,7 @@ The next run uses `Lecture (1).*`, then `Lecture (2).*`, and so forth. Every fil
 
 `output_dir` is fixed to the source file's `transcript results` directory; no additional public argument is needed.
 
-A crash/power failure mid-copy is not a fully atomic filesystem transaction. The directory may contain incomplete files requiring manual cleanup; in-process exceptions trigger rollback. The lock directory `.transcription-publish.lock` can require manual removal after a process crash, after verifying that no publisher is active. A separate manifest/transaction recovery mechanism is a future reliability improvement.
+A concurrent publisher returns `OUTPUT_BUSY` while the directory lock is held; stale locks must not be deleted while another publisher is active. A crash/power failure mid-copy is not a fully atomic filesystem transaction. The directory may contain incomplete files requiring manual cleanup; in-process exceptions trigger rollback. The lock directory `.transcription-publish.lock` can require manual removal after a process crash, after verifying that no publisher is active. A separate manifest/transaction recovery mechanism is a future reliability improvement.
 
 ## Timeline semantics
 

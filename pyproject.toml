@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "transcription-toolkit"
 version = "0.1.0"
-description = "Extensible Python audio/video transcription framework (foundation only)"
+description = "Python audio/video transcription with English and Mandarin ASR adapters"
 requires-python = ">=3.11"
 dependencies = []
 
