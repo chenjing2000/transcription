@@ -1,7 +1,4 @@
-"""Public transcription entry point; Phase 4–5 return in-memory recognition results.
-
-The agreed four-file publication is Phase 6 and is not silently simulated.
-"""
+"""Public transcription entry point: engine recognition and grouped file output."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,6 +10,7 @@ from .media import prepare_audio, SUPPORTED_INPUTS
 from .model_manager import _MANAGER
 from .registry import get_engine
 from .result import TranscriptionResult
+from .output import publish_result
 
 DEVICES = frozenset({"cpu", "gpu", "auto"})
 
@@ -32,12 +30,7 @@ def _device(requested: str) -> str:
 
 def transcribe(file_path: str | Path, engine: str, *, device: str = "auto",
                audio_track: int = 0) -> TranscriptionResult:
-    """Recognize with WhisperX or Paraformer; publishing remains pending.
-
-    All expected failures return a status='failed' result. Successful English
-    recognition is 'partial' until the Phase 6 output contract is implemented.
-    No files are written into 'transcript results' in this phase.
-    """
+    """Recognize, align, structure and publish four files plus video audio."""
     source = Path(file_path)
     result = TranscriptionResult(
         status="failed", info="", engine=engine, source_path=source, device=device,
@@ -68,16 +61,22 @@ def transcribe(file_path: str | Path, engine: str, *, device: str = "auto",
             )
             result.source_path = source
             result.device = "gpu" if selected == "cuda" else "cpu"
-            # Extracted audio is staged and removed after this function exits.
-            # Never return a stale temp path as though it were a published artifact.
-            result.audio_path = source if not prepared.extracted else None
             result.warnings.extend(prepared.warnings)
+            result = publish_result(result, prepared)
         return result
     except TranscriptionError as exc:
+        result.status = "failed"
+        result.files.clear()
+        result.output_dir = None
+        result.audio_path = None
         result.error_code = exc.code
         result.info = str(exc)
         return result
     except Exception as exc:
+        result.status = "failed"
+        result.files.clear()
+        result.output_dir = None
+        result.audio_path = None
         result.error_code = "UNEXPECTED_ERROR"
         result.info = f"Unexpected transcription failure: {type(exc).__name__}: {exc}"
         return result

@@ -1,13 +1,15 @@
-"""Example usage of the public Python API (does not perform ASR yet)."""
+"""Minimal public API example.
+
+The default invocation only lists declared engines; it never downloads models.
+To run recognition, install a compatible ASR framework and uncomment an example.
+"""
 from transcription import list_engines, transcribe, release_models
 
 
 def main() -> None:
-    print("Registered engines:")
     for item in list_engines():
-        print(f"  {item.name} ({item.language}, model={item.model_id})")
-    # Real transcription is deliberately not implemented in this foundation.
-    # Example once Phase 4/5 are complete:
+        print(f"{item.name} | {item.language} | {item.model_id}")
+    # After installing WhisperX/FunASR and FFmpeg:
     # result = transcribe(r"D:\Videos\lecture.mp4", engine="whisperx_large_v3")
     # print(result.status, result.info, result.files)
     release_models()
