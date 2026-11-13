@@ -17,3 +17,4 @@ include = ["transcription*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["hardware: requires explicitly configured real ASR models and test audio"]
