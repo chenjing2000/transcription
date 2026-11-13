@@ -53,3 +53,16 @@ separately. No exact transcription accuracy guarantee follows from a clean run.
 Do not use these commands until CUDA preflight succeeds, and do not use
 `--force-reinstall` blindly because ML frameworks may resolve to incompatible
 PyTorch builds.
+
+## One-command Windows shortcut
+
+```powershell
+# Preflight only. No speech model weights loaded:
+.\\scripts\\run-gpu-acceptance.ps1
+
+# Later, when both test recordings are ready:
+.\\scripts\\run-gpu-acceptance.ps1 -EnglishSample 'D:\\Samples\\english.wav' -ChineseSample 'D:\\Samples\\mandarin.wav'
+```
+
+The script stops on a failed CUDA compute probe and saves diagnostic JSON.
+It neither installs PyTorch nor updates the Windows driver.
