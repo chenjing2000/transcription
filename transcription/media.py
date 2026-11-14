@@ -231,10 +231,28 @@ def prepare_audio(
     )
     if not packet_check.verified:
         warnings.append("Packet timeline unverified: " + packet_check.reason)
+    from .processing.timeline import verify_playback_mapping
+    mapping = verify_playback_mapping(
+        media.source_path, destination, recognition_wav, stream.index,
+        stream.sample_rate or 0, ffprobe=ffprobe or _tool_path("ffprobe"),
+        ffmpeg=executable,
+    )
+    if not mapping.verified:
+        warnings.append("Video playback mapping unverified: " + mapping.reason)
+    else:
+        # A verified PCM/video mapping supersedes provisional packet warnings.
+        warnings = [w for w in warnings if not (
+            w.startswith("Stream start") or
+            w.startswith("Packet timeline unverified:")
+        )]
     return PreparedAudio(
         media.source_path, destination, stream, True,
         stream.start_time, copied.start_time, tuple(warnings),
         packet_timeline_verified=packet_check.verified,
         packet_timeline_offset=packet_check.offset_seconds,
         packet_timeline_reason=packet_check.reason,
+        recognition_audio_path=recognition_wav,
+        video_playback_offset=mapping.offset_seconds if mapping.verified else None,
+        video_duration=media.duration,
+        video_mapping_reason=mapping.reason,
     )

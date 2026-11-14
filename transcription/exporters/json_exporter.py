@@ -12,11 +12,12 @@ from transcription.media import PreparedAudio
 
 def _timeline(prepared: PreparedAudio) -> dict:
     video = prepared.extracted
+    verified = not video or getattr(prepared, "video_playback_offset", None) is not None
     return {
         "unit": "seconds",
         "reference": "source_video_playback" if video else "source_audio_playback",
-        "mapping_verified": not video,
-        "video_time_mapping_verified": not video,
+        "mapping_verified": verified,
+        "video_time_mapping_verified": verified if video else False,
         "original_stream_start": prepared.original_stream_start,
         "extracted_stream_start": prepared.extracted_stream_start,
         "candidate_video_offset": prepared.candidate_video_offset if video else None,
@@ -35,13 +36,29 @@ def _group_words(result: TranscriptionResult):
                 entries.append(word)
         yield sentence, entries
 
+def _mapped_interval(start, end, prepared: PreparedAudio):
+    if start is None or end is None:
+        return None, None
+    if prepared.extracted:
+        offset = getattr(prepared, "video_playback_offset", None)
+        if offset is None:
+            return None, None
+        start, end = start + offset, end + offset
+        duration = getattr(prepared, "video_duration", None)
+        if duration is not None and end > duration + .05:
+            return None, None
+    if start < 0 or end < start:
+        return None, None
+    return round(start, 3), round(end, 3)
 
-def _word_entry(word: Word, verified: bool) -> dict:
-    aligned = verified and word.alignment_status == "aligned" and word.start is not None
+
+def _word_entry(word: Word, prepared: PreparedAudio) -> dict:
+    start, end = _mapped_interval(word.start, word.end, prepared)
+    aligned = word.alignment_status == "aligned" and start is not None
     entry = {
         "word": word.text,
-        "start": round(word.start, 3) if aligned else None,
-        "end": round(word.end, 3) if aligned else None,
+        "start": start if aligned else None,
+        "end": end if aligned else None,
         "alignment_status": "aligned" if aligned else "missing",
     }
     if word.score is not None:
@@ -49,13 +66,13 @@ def _word_entry(word: Word, verified: bool) -> dict:
     return entry
 
 
-def _english_segments(result: TranscriptionResult, verified: bool):
+def _english_segments(result: TranscriptionResult, prepared: PreparedAudio):
     paragraph_ends = {p.sentences[-1].char_end for p in result.paragraphs if p.sentences}
     segments, flattened = [], []
     for sentence, words in _group_words(result):
         entries = []
         for word in words:
-            entry = _word_entry(word, verified)
+            entry = _word_entry(word, prepared)
             if word.char_end == sentence.char_end and sentence.char_end in paragraph_ends:
                 entry["breakParagraph"] = True
             entries.append(entry)
@@ -72,19 +89,21 @@ def _english_segments(result: TranscriptionResult, verified: bool):
     return segments, flattened
 
 
-def _chinese_segments(result: TranscriptionResult, verified: bool) -> list[dict]:
+def _chinese_segments(result: TranscriptionResult, prepared: PreparedAudio) -> list[dict]:
     segments = []
     for sentence, words in _group_words(result):
-        complete = verified and bool(words) and all(
+        complete = bool(words) and all(
             w.alignment_status == "aligned" and w.start is not None and w.end is not None
             for w in words
         )
         if complete:
             complete = all(words[i].start >= words[i - 1].end for i in range(1, len(words)))
+        start, end = _mapped_interval(words[0].start, words[-1].end, prepared) if complete else (None, None)
+        complete = complete and start is not None
         segments.append({
             "text": sentence.text,
-            "start": round(words[0].start, 3) if complete else None,
-            "end": round(words[-1].end, 3) if complete else None,
+            "start": start if complete else None,
+            "end": end if complete else None,
             "alignment_status": "aligned" if complete else "missing",
         })
     return segments
@@ -95,7 +114,7 @@ def has_missing_chinese_sentence_timing(result: TranscriptionResult,
     """Use the same sentence logic as JSON to determine partial status."""
     return result.engine == "paraformer_zh" and any(
         segment["alignment_status"] == "missing"
-        for segment in _chinese_segments(result, not prepared.extracted)
+        for segment in _chinese_segments(result, prepared)
     )
 
 
@@ -109,10 +128,10 @@ def serialize_json(result: TranscriptionResult, prepared: PreparedAudio,
             "schema_version": 2,
             "language": "zh",
             "timeline": timeline,
-            "segments": _chinese_segments(result, timeline["mapping_verified"]),
+            "segments": _chinese_segments(result, prepared),
         }
     else:
-        segments, flat = _english_segments(result, timeline["mapping_verified"])
+        segments, flat = _english_segments(result, prepared)
         output = {
             "segments": segments,
             "word_segments": flat,

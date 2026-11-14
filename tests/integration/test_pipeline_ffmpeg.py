@@ -29,7 +29,7 @@ def test_video_stream_copy_and_three_outputs(monkeypatch, tmp_path):
         def __init__(self, **kwargs):
             pass
         def transcribe(self, audio):
-            assert audio.suffix == ".m4a"
+            assert audio.suffix == ".wav"
             assert audio.is_file()
             return TranscriptionResult(
                 status="partial", info="recognition", engine="whisperx_large_v3",

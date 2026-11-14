@@ -110,7 +110,7 @@ def publish_result(result: TranscriptionResult, prepared: PreparedAudio) -> Tran
     if result.status == "failed":
         raise TranscriptionError("TRANSCRIPTION_FAILED", "Cannot publish a failed recognition result")
     structure_result(result)
-    if prepared.extracted and not any('video playback timeline' in w.lower() for w in result.warnings):
+    if prepared.extracted and getattr(prepared, 'video_playback_offset', None) is None and not any('video playback timeline' in w.lower() for w in result.warnings):
         result.warnings.append('Original video playback timeline is not yet verified; all exported timestamps are marked missing')
     if has_missing_chinese_sentence_timing(result, prepared) and not any(
         'Chinese sentences lack verified timestamps' in w for w in result.warnings

@@ -17,12 +17,11 @@ For video inputs the reference is `source_video_playback`; for audio input
 reference is verified. Missing times are paired `null` values marked
 `alignment_status: "missing"`, not zero or an estimate.
 
-**Current limitation:** video packet-level continuity checks have been
-implemented, but decoded audio sample-to-original-video playback mapping
-is still unverified. Therefore all video `start/end` values remain
-`null` and the transcription result is `partial`. The `candidate_video_offset`
-field is diagnostic ONLY; it is not used to manufacture public timestamps.
-See [timeline verification](timeline_verification.md).
+For continuous videos where decoded sample identity, presentation continuity and
+video playback origin are verified, timestamp values are translated to the
+original-video clock. If verification fails, affected timestamps are `null`
+and the result is `partial`. The `candidate_video_offset` remains diagnostic
+only; see [timeline verification](timeline_verification.md).
 
 ## English (WhisperX)
 

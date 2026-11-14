@@ -51,7 +51,9 @@ def transcribe(file_path: str | Path, engine: str, *, device: str = "auto",
             result = _MANAGER.run(
                 spec.name, selected,
                 lambda: Adapter(model_id=spec.model_id, name=spec.name, device=selected),
-                lambda adapter: adapter.transcribe(prepared.audio_path),
+                lambda adapter: adapter.transcribe(
+                    getattr(prepared, 'recognition_audio_path', None) or prepared.audio_path
+                ),
             )
             result.source_path = source
             result.device = "gpu" if selected == "cuda" else "cpu"
