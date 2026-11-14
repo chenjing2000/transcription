@@ -61,6 +61,6 @@ explicitly missing rather than synthesized.
 - Publishing rolls back ordinary failures and avoids overwriting other files.
   It does **not** promise crash-atomic multi-file transactions.
 
-See [roadmap](docs/roadmap.md), [validation boundaries](docs/validation.md),
+For CPU/GPU online/local uv environment variants, see the\n[uv environment guide](docs/uv_installation_variants.md).\n\nSee [roadmap](docs/roadmap.md), [validation boundaries](docs/validation.md),
 [output format](docs/output_schema.md), [architecture](docs/architecture.md),
 and [GPU acceptance](docs/hardware_acceptance.md).
