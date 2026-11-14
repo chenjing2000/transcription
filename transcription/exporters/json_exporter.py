@@ -90,6 +90,15 @@ def _chinese_segments(result: TranscriptionResult, verified: bool) -> list[dict]
     return segments
 
 
+def has_missing_chinese_sentence_timing(result: TranscriptionResult,
+                                        prepared: PreparedAudio) -> bool:
+    """Use the same sentence logic as JSON to determine partial status."""
+    return result.engine == "paraformer_zh" and any(
+        segment["alignment_status"] == "missing"
+        for segment in _chinese_segments(result, not prepared.extracted)
+    )
+
+
 def serialize_json(result: TranscriptionResult, prepared: PreparedAudio,
                    *, timed: bool = True) -> str:
     if not timed:

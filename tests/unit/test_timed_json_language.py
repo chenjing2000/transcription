@@ -101,5 +101,6 @@ def test_zh_inconsistent_word_times_do_not_become_sentence_times(tmp_path):
     result.words[1].end = .19
     output = publish_result(result, prepared(src))
     data = json.loads(output.files["timed_json"].read_text(encoding="utf8"))
+    assert output.status == "partial"
     assert data["segments"][0]["alignment_status"] == "missing"
     assert data["segments"][0]["start"] is None

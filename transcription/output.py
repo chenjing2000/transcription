@@ -16,7 +16,7 @@ from typing import Iterator
 from .errors import TranscriptionError
 from .media import PreparedAudio
 from .processing.text_structure import structure_result
-from .exporters.json_exporter import serialize_json
+from .exporters.json_exporter import serialize_json, has_missing_chinese_sentence_timing
 from .exporters.txt_exporter import plain_txt
 from .result import TranscriptionResult
 
@@ -112,6 +112,10 @@ def publish_result(result: TranscriptionResult, prepared: PreparedAudio) -> Tran
     structure_result(result)
     if prepared.extracted and not any('video playback timeline' in w.lower() for w in result.warnings):
         result.warnings.append('Original video playback timeline is not yet verified; all exported timestamps are marked missing')
+    if has_missing_chinese_sentence_timing(result, prepared) and not any(
+        'Chinese sentences lack verified timestamps' in w for w in result.warnings
+    ):
+        result.warnings.append('Some Chinese sentences lack verified timestamps')
     result.status = "partial" if result.warnings else "success"
     result.info = "Published with warnings" if result.warnings else "Transcription and export completed"
     folder = result.source_path.parent / "transcript results"
