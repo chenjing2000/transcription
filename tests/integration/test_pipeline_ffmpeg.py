@@ -12,7 +12,7 @@ from transcription.result import TranscriptionResult, Word
 
 @pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"),
                     reason="FFmpeg and FFprobe required")
-def test_video_stream_copy_and_four_text_files(monkeypatch, tmp_path):
+def test_video_stream_copy_and_three_outputs(monkeypatch, tmp_path):
     import transcription.api as api
     import transcription.engines.whisperx as module
 
@@ -47,7 +47,7 @@ def test_video_stream_copy_and_four_text_files(monkeypatch, tmp_path):
     try:
         first = transcribe(source, "whisperx_large_v3")
         assert first.status == "partial"  # video timeline not verified
-        assert set(first.files) == {"audio", "timed_json", "timed_txt", "json", "txt"}
+        assert set(first.files) == {"audio", "timed_json", "txt"}
         assert first.audio_path == first.files["audio"]
         assert first.files["audio"].suffix == ".m4a"
         assert source.read_bytes() == original_bytes
@@ -56,14 +56,13 @@ def test_video_stream_copy_and_four_text_files(monkeypatch, tmp_path):
         assert original_audio.sample_rate == copied.sample_rate
         assert original_audio.channels == copied.channels
         timed = json.loads(first.files["timed_json"].read_text(encoding="utf8"))
-        plain = json.loads(first.files["json"].read_text(encoding="utf8"))
-        assert timed["text"] == plain["text"] == "Hello world."
+        assert [word["word"] for word in timed["word_segments"]] == ["Hello", "world."]
+        assert timed["segments"][0]["text"] == "Hello world."
         assert timed["timeline"]["video_time_mapping_verified"] is False
-        assert "timeline" not in plain
         second = transcribe(source, "whisperx_large_v3")
         assert second.status == "partial"
         assert second.files["audio"].name == "中文 lecture (1).m4a"
-        assert second.files["json"].name == "中文 lecture (1).json"
-        assert first.files["json"].exists()
+        assert second.files["timed_json"].name == "中文 lecture (1).timed.json"
+        assert first.files["timed_json"].exists()
     finally:
         release_models()

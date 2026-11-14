@@ -27,8 +27,11 @@ class Word:
     char_start: int
     char_end: int
     alignment_status: AlignmentStatus = "missing"
+    score: float | None = None
 
     def __post_init__(self) -> None:
+        if self.score is not None and (not isfinite(self.score) or not 0 <= self.score <= 1):
+            raise ValueError("Word confidence score must be between 0 and 1")
         if self.char_start < 0 or self.char_end < self.char_start:
             raise ValueError("Invalid half-open character span")
         if (self.start is None) != (self.end is None):

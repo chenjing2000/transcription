@@ -34,8 +34,8 @@ def test_chinese_api_dispatch_cache_and_export(monkeypatch, tmp_path):
         second = transcribe(source, "paraformer_zh")
         assert first.text == second.text == "你好"
         assert first.status == "success"
-        assert len(first.files) == 4
-        assert second.files["json"].name == "sample (1).json"
+        assert len(first.files) == 2
+        assert second.files["timed_json"].name == "sample (1).timed.json"
         assert events["init"] == 1
     finally:
         release_models()

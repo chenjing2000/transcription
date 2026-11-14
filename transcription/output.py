@@ -17,7 +17,7 @@ from .errors import TranscriptionError
 from .media import PreparedAudio
 from .processing.text_structure import structure_result
 from .exporters.json_exporter import serialize_json
-from .exporters.txt_exporter import plain_txt, timed_txt
+from .exporters.txt_exporter import plain_txt
 from .result import TranscriptionResult
 
 
@@ -40,8 +40,6 @@ def _names(stem: str, extension: str | None, number: int) -> dict[str, str]:
     base = stem + (f" ({number})" if number else "")
     names = {
         "timed_json": base + ".timed.json",
-        "timed_txt": base + ".timed.txt",
-        "json": base + ".json",
         "txt": base + ".txt",
     }
     if extension is not None:
@@ -75,15 +73,10 @@ def _stage_files(stage: Path, result: TranscriptionResult,
     """Render each payload once, then verify all required staged artifacts."""
     staged = {
         "timed_json": stage / "timed.json",
-        "timed_txt": stage / "timed.txt",
-        "json": stage / "plain.json",
         "txt": stage / "plain.txt",
     }
     staged["timed_json"].write_text(
         serialize_json(result, prepared, timed=True), encoding="utf-8")
-    staged["timed_txt"].write_text(timed_txt(result), encoding="utf-8")
-    staged["json"].write_text(
-        serialize_json(result, prepared, timed=False), encoding="utf-8")
     staged["txt"].write_text(plain_txt(result), encoding="utf-8")
     if prepared.extracted:
         staged["audio"] = stage / ("audio" + prepared.audio_path.suffix)
@@ -113,7 +106,7 @@ def _publish_files(folder: Path, stem: str, audio_extension: str | None,
 
 
 def publish_result(result: TranscriptionResult, prepared: PreparedAudio) -> TranscriptionResult:
-    """Publish the four transcript files plus original-codec video audio."""
+    """Publish word-timed JSON, plain TXT, and original-codec video audio."""
     if result.status == "failed":
         raise TranscriptionError("TRANSCRIPTION_FAILED", "Cannot publish a failed recognition result")
     structure_result(result)

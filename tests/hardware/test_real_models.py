@@ -60,11 +60,10 @@ def test_real_english_chinese_english_sequence():
             )
             assert result.text.strip(), engine
             assert result.device == "gpu"
-            assert result.files.keys() >= {"timed_json", "timed_txt", "json", "txt"}
+            assert result.files.keys() >= {"timed_json", "txt"}
             assert all(p.is_file() for p in result.files.values())
             timed = json.loads(result.files["timed_json"].read_text(encoding="utf-8"))
-            plain = json.loads(result.files["json"].read_text(encoding="utf-8"))
-            assert timed["text"] == plain["text"] == result.text
+            assert len(timed["word_segments"]) == len(result.words)
             for word in result.words:
                 assert result.text[word.char_start:word.char_end] == word.text
     finally:

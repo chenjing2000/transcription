@@ -45,11 +45,11 @@ def _validate_outputs(result):
         result.error_code, result.info
     )
     assert result.text.strip(), "Empty recognition"
-    assert set(result.files) == {"timed_json", "timed_txt", "json", "txt"}
+    assert set(result.files) == {"timed_json", "txt"}
     assert all(path.is_file() and path.stat().st_size for path in result.files.values())
     timed = json.loads(result.files["timed_json"].read_text(encoding="utf-8"))
-    plain = json.loads(result.files["json"].read_text(encoding="utf-8"))
-    assert timed["text"] == plain["text"] == result.text
+    assert len(timed["word_segments"]) == len(result.words)
+    assert timed["language"] in {"en", "zh"}
     for word in result.words:
         assert result.text[word.char_start:word.char_end] == word.text
         if word.start is not None:

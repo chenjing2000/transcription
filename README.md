@@ -44,9 +44,9 @@ installation. To run real speech models, install a compatible PyTorch,
 ## Output
 
 After successful recognition, `transcript results` is created beside the
-input file. Each run publishes `.timed.json`, `.timed.txt`, `.json`, and
-`.txt`; video additionally publishes its extracted original-codec audio
-(no re-encoding). A shared numeric suffix ` (1)`, ` (2)`, ... prevents
+input file. Each run publishes a word-timed `.timed.json` (Transcript Studio-style
+segments) and a plain `.txt`; video additionally publishes its extracted
+original-codec audio (no re-encoding). A shared numeric suffix ` (1)`, ` (2)`, ... prevents
 overwriting previous output groups. Times that cannot be verified are
 explicitly missing rather than synthesized.
 

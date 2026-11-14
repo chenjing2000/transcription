@@ -4,6 +4,7 @@ Heavy dependencies and model weights are loaded only when an engine is used.
 """
 from __future__ import annotations
 
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -60,11 +61,15 @@ def _word_entries(segments: list[dict[str, Any]]) -> tuple[str, list[Word], list
                 and isinstance(end, (int, float)) and not isinstance(end, bool)
                 and 0 <= start <= end
             )
+            raw_score = item.get("score")
+            score = float(raw_score) if (isinstance(raw_score, (int, float))
+                and not isinstance(raw_score, bool) and isfinite(raw_score)
+                and 0 <= raw_score <= 1) else None
             spans.append(Word(
                 text=token, start=float(start) if valid else None,
                 end=float(end) if valid else None,
                 char_start=offset + pos, char_end=offset + pos + len(token),
-                alignment_status="aligned" if valid else "missing",
+                alignment_status="aligned" if valid else "missing", score=score,
             ))
             if not valid:
                 warnings.append(f"No reliable timestamp for word: {token!r}")

@@ -31,11 +31,11 @@ def test_api_english_audio_path(monkeypatch, tmp_path):
         result = transcribe(source, "whisperx_large_v3")
         assert result.status == "success"
         assert result.text == "Hello"
-        assert len(result.files) == 4
-        assert result.files["json"].is_file()
+        assert len(result.files) == 2
+        assert result.files["timed_json"].is_file()
         assert result.audio_path == source
         result2 = transcribe(source, "whisperx_large_v3")
-        assert result2.files["json"].name == "test (1).json"
+        assert result2.files["timed_json"].name == "test (1).timed.json"
         assert FakeEngine.initialized == 1
     finally:
         release_models()

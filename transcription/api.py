@@ -29,7 +29,7 @@ def _device(requested: str) -> str:
 
 def transcribe(file_path: str | Path, engine: str, *, device: str = "auto",
                audio_track: int = 0) -> TranscriptionResult:
-    """Recognize, align, structure and publish four files plus video audio."""
+    """Recognize, align, and publish timed JSON, plain TXT and video audio."""
     source = Path(file_path)
     result = TranscriptionResult(
         status="failed", info="", engine=engine, source_path=source, device=device,

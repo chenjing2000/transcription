@@ -56,7 +56,7 @@ def test_busy_publisher_never_damages_existing_group(tmp_path):
         worker.join(timeout=5)
     assert not worker.is_alive()
     second = publisher.publish_result(_result(source), _audio(source))
-    assert second.files["json"].name == "clip (1).json"
+    assert second.files["timed_json"].name == "clip (1).timed.json"
 
 
 def test_collision_after_suffix_check_preserves_foreign_file(monkeypatch, tmp_path):
@@ -64,7 +64,7 @@ def test_collision_after_suffix_check_preserves_foreign_file(monkeypatch, tmp_pa
     source.write_bytes(b"original")
     folder = tmp_path / "transcript results"
     original = publisher._unique_names
-    foreign = folder / "clip.json"
+    foreign = folder / "clip.timed.json"
 
     def concurrent_creation(folder_arg, stem, ext):
         result = original(folder_arg, stem, ext)
