@@ -68,6 +68,10 @@ class PreparedAudio:
     packet_timeline_verified: bool = False
     packet_timeline_offset: float | None = None
     packet_timeline_reason: str | None = None
+    recognition_audio_path: Path | None = None
+    video_playback_offset: float | None = None
+    video_duration: float | None = None
+    video_mapping_reason: str | None = None
 
     @property
     def candidate_video_offset(self) -> float | None:
