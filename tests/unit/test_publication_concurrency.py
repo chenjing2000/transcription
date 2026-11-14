@@ -76,4 +76,4 @@ def test_collision_after_suffix_check_preserves_foreign_file(monkeypatch, tmp_pa
         publisher.publish_result(_result(source), _audio(source))
     assert error.value.code == "OUTPUT_FAILED"
     assert foreign.read_text(encoding="utf-8") == "other process"
-    assert sorted(path.name for path in folder.iterdir()) == ["clip.json"]
+    assert sorted(path.name for path in folder.iterdir()) == ["clip.timed.json"]

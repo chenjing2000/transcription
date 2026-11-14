@@ -69,7 +69,7 @@ def test_group_numbering_does_not_overwrite_previous(tmp_path):
     assert second.files["timed_json"].name == "Lecture (1).timed.json"
     assert second.files["txt"].name == "Lecture (1).txt"
     assert second.files["timed_json"].name == "Lecture (1).timed.json"
-    assert first.files["json"].read_bytes() == previous
+    assert first.files["timed_json"].read_bytes() == previous
     # A collision involving only one member reserves the next complete group.
     (tmp_path / "transcript results" / "Lecture (2).txt").write_text("other", encoding="utf-8")
     third = publish_result(sample(src), prepared(src))
