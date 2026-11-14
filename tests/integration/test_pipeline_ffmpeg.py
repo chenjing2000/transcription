@@ -59,6 +59,10 @@ def test_video_stream_copy_and_three_outputs(monkeypatch, tmp_path):
         assert [word["word"] for word in timed["word_segments"]] == ["Hello", "world."]
         assert timed["segments"][0]["text"] == "Hello world."
         assert timed["timeline"]["video_time_mapping_verified"] is False
+        assert timed["timeline"]["reference"] == "source_video_playback"
+        assert timed["segments"][0]["start"] is None
+        assert timed["segments"][0]["alignment_status"] == "missing"
+        assert all(w["start"] is None and w["end"] is None for w in timed["word_segments"])
         second = transcribe(source, "whisperx_large_v3")
         assert second.status == "partial"
         assert second.files["audio"].name == "中文 lecture (1).m4a"

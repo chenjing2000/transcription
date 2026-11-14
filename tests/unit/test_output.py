@@ -88,6 +88,9 @@ def test_video_publishes_original_audio_and_timeline(tmp_path):
     timed = json.loads(result.files["timed_json"].read_text(encoding="utf-8"))
     assert timed["timeline"]["candidate_video_offset"] == 1.0
     assert timed["timeline"]["video_time_mapping_verified"] is False
+    assert timed["timeline"]["reference"] == "source_video_playback"
+    assert all(w["start"] is None for w in timed["word_segments"])
+    assert result.status == "partial"
 
 
 def test_partial_alignment_retained(tmp_path):

@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 from transcription import transcribe, release_models
@@ -35,6 +36,12 @@ def test_chinese_api_dispatch_cache_and_export(monkeypatch, tmp_path):
         assert first.text == second.text == "你好"
         assert first.status == "success"
         assert len(first.files) == 2
+        payload = json.loads(first.files["timed_json"].read_text(encoding="utf-8"))
+        assert payload["language"] == "zh"
+        assert payload["segments"] == [
+            {"text": "你好", "start": 0.0, "end": 0.4, "alignment_status": "aligned"}
+        ]
+        assert "word_segments" not in payload
         assert second.files["timed_json"].name == "sample (1).timed.json"
         assert events["init"] == 1
     finally:

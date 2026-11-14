@@ -110,6 +110,8 @@ def publish_result(result: TranscriptionResult, prepared: PreparedAudio) -> Tran
     if result.status == "failed":
         raise TranscriptionError("TRANSCRIPTION_FAILED", "Cannot publish a failed recognition result")
     structure_result(result)
+    if prepared.extracted and not any('video playback timeline' in w.lower() for w in result.warnings):
+        result.warnings.append('Original video playback timeline is not yet verified; all exported timestamps are marked missing')
     result.status = "partial" if result.warnings else "success"
     result.info = "Published with warnings" if result.warnings else "Transcription and export completed"
     folder = result.source_path.parent / "transcript results"

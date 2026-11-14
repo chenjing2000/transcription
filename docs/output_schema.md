@@ -1,82 +1,88 @@
 # Transcript output schema
 
-For video input `D:/Media/Lecture.mp4`, publish **three files** in
-`D:/Media/transcript results/`:
+A video input `D:/Media/Lecture.mp4` publishes exactly three new files in
+`D:/Media/transcript results/`: `Lecture.timed.json`, `Lecture.txt`, and
+`Lecture.m4a` (or another original-codec-compatible extension). Audio is
+stream-copied, not re-encoded. MP3/WAV inputs publish the two text files;
+the original audio remains the third usable item without duplicating it.
 
-- `Lecture.timed.json`: word-level timestamps in Transcript Studio-style
-  `segments` and `word_segments`; `language` and `transcript_studio` metadata.
-- `Lecture.txt`: punctuated paragraphs separated by blank lines.
-- `Lecture.m4a` (example): extracted video audio, copying the original codec
-  without re-encoding, using a compatible container extension.
+`Lecture.json` and `Lecture.timed.txt` are no longer generated.
 
-For MP3/WAV inputs, the source audio already exists, so **two new files**
-(`.timed.json` and `.txt`) are published; the source audio is not duplicated.
-The publisher no longer creates `.json` or `.timed.txt` files.
+## Time contract
 
-## Timed JSON structure
+**Every numeric `start`/`end` is elapsed seconds on the specified source
+media playback timeline**, never a character index or offset metadata.
+For video inputs the reference is `source_video_playback`; for audio input
+`source_audio_playback`. A time is only numeric when its mapping to that
+reference is verified. Missing times are paired `null` values marked
+`alignment_status: "missing"`, not zero or an estimate.
 
-The word-level layout follows the uploaded Transcript Studio v2 example.
-`segments` groups words into sentence-derived segments; `word_segments`
-is a flattened copy of the same word entries:
+**Current limitation:** video packet-level continuity checks have been
+implemented, but decoded audio sample-to-original-video playback mapping
+is still unverified. Therefore all video `start/end` values remain
+`null` and the transcription result is `partial`. The `candidate_video_offset`
+field is diagnostic ONLY; it is not used to manufacture public timestamps.
+See [timeline verification](timeline_verification.md).
+
+## English (WhisperX)
+
+English exports Transcript Studio-style `segments[].words` plus flattened
+`word_segments`. Example for *audio input*:
 
 ```json
 {
+  "language": "en",
   "segments": [
     {
-      "start": 7.293,
-      "end": 7.613,
-      "text": "Hello.",
+      "text": "Hello there.",
+      "start": 0.12,
+      "end": 0.78,
+      "alignment_status": "aligned",
       "words": [
-        {"word": "Hello.", "start": 7.293, "end": 7.613, "score": 0.816}
+        {"word": "Hello", "start": 0.12, "end": 0.42, "alignment_status": "aligned"},
+        {"word": "there.", "start": 0.50, "end": 0.78, "alignment_status": "aligned", "breakParagraph": true}
       ]
     }
   ],
   "word_segments": [
-    {"word": "Hello.", "start": 7.293, "end": 7.613, "score": 0.816}
+    {"word": "Hello", "start": 0.12, "end": 0.42, "alignment_status": "aligned"},
+    {"word": "there.", "start": 0.50, "end": 0.78, "alignment_status": "aligned", "breakParagraph": true}
   ],
-  "language": "en",
   "transcript_studio": {"format": "transcript-studio", "schemaVersion": 2},
-  "timeline": {
-    "unit": "seconds",
-    "clock": "extracted_audio",
-    "original_stream_start": 0.0,
-    "extracted_stream_start": 0.0,
-    "candidate_video_offset": 0.0,
-    "video_time_mapping_verified": false
-  }
+  "timeline": {"unit": "seconds", "reference": "source_audio_playback", "mapping_verified": true}
 }
 ```
 
-The values above are illustrative. All word times are in seconds. The
-`score` property is **optional**: only real recognition/alignment confidence
-reported by the engine is exported; FunASR word confidence is not currently
-available. Neither confidence scores nor `avg_logprob` are invented.
-Missing word timestamps are `null`; segments with no timed words also
-have `null` start/end. Paragraph ends may be marked by
-`breakParagraph: true` on the last word of a derived paragraph.
+Only genuine model-provided confidence `score` values are emitted.
+`avg_logprob` is not fabricated. Sentence status is `partial` when
+some words lack verified time, `missing` when none have it.
 
-Segments are created from the library's sentence/paragraph segmentation,
-which **may differ from the original ASR chunks**. The `transcript_studio`
-schema marker mirrors the supplied reference; full compatibility with every
-Transcript Studio consumer requires an import test. The added `timeline`
-extension retains the prior cautious time-base metadata.
+## Chinese (Paraformer)
 
-## Naming, publication and timeline
+Chinese exports **sentence-only** `segments` and does not export
+`words`, `word_segments` or `characters`:
 
-Later runs receive `Lecture (1).timed.json`, `Lecture (1).txt`,
-`Lecture (1).m4a`, etc. The suffix is shared by all outputs; no existing
-file is overwritten. The publisher uses a directory lock and exclusive file
-creation and rolls back ordinary failures. Process crashes can leave partial
-artifacts or stale locks, so publishing is not crash-atomic.
+```json
+{
+  "schema_version": 2,
+  "language": "zh",
+  "timeline": {"unit": "seconds", "reference": "source_audio_playback", "mapping_verified": true},
+  "segments": [
+    {"text": "你好。", "start": 0.1, "end": 0.4, "alignment_status": "aligned"},
+    {"text": "今天学习。", "start": null, "end": null, "alignment_status": "missing"}
+  ]
+}
+```
 
-For video, `timeline.clock` reports the **extracted audio** time base.
-`candidate_video_offset` is not a verified video playback offset when
-`video_time_mapping_verified=false`. Do not infer frame-accurate original
-video sync from it.
+Sentence bounds derive from verified internal token timing. Any missing or
+inconsistent token makes the **whole sentence** missing; the complete text is
+still kept. Internal word/character timing data remain available for
+validation even though they are not exported.
 
-Alignment warnings still determine `TranscriptionResult.status == "partial"`
-when recognition produces usable text but lacks verified timestamps.
+## Publishing
 
-## Source-video timeline work in progress
-
-Packet-level mapping diagnostics are described in [timeline verification](timeline_verification.md). This does not yet certify original-video playback synchronization.
+Repeated runs share one group suffix: `Lecture (1).timed.json`,
+`Lecture (1).txt`, `Lecture (1).m4a`. Existing files are never
+overwritten. A per-directory lock and exclusive file creation protect
+cooperative publishers; ordinary failures roll back newly created files.
+A crash may leave partial artifacts or a stale lock (not crash-atomic).
