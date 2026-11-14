@@ -76,3 +76,7 @@ video sync from it.
 
 Alignment warnings still determine `TranscriptionResult.status == "partial"`
 when recognition produces usable text but lacks verified timestamps.
+
+## Source-video timeline work in progress
+
+Packet-level mapping diagnostics are described in [timeline verification](timeline_verification.md). This does not yet certify original-video playback synchronization.

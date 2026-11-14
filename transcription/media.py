@@ -65,6 +65,9 @@ class PreparedAudio:
     original_stream_start: float | None
     extracted_stream_start: float | None
     warnings: tuple[str, ...] = ()
+    packet_timeline_verified: bool = False
+    packet_timeline_offset: float | None = None
+    packet_timeline_reason: str | None = None
 
     @property
     def candidate_video_offset(self) -> float | None:
@@ -220,7 +223,18 @@ def prepare_audio(
             "Stream start times recorded; constant-offset mapping must be verified "
             "for edit lists or discontinuous timestamps before video highlighting"
         )
+    # A packet-level constant shift is only one prerequisite for translating
+    # decoded ASR timestamps to the original video playback time axis.
+    from .processing.timeline import verify_stream_copy_packet_timeline
+    packet_check = verify_stream_copy_packet_timeline(
+        media.source_path, destination, stream.index, ffprobe=ffprobe or _tool_path("ffprobe"),
+    )
+    if not packet_check.verified:
+        warnings.append("Packet timeline unverified: " + packet_check.reason)
     return PreparedAudio(
         media.source_path, destination, stream, True,
         stream.start_time, copied.start_time, tuple(warnings),
+        packet_timeline_verified=packet_check.verified,
+        packet_timeline_offset=packet_check.offset_seconds,
+        packet_timeline_reason=packet_check.reason,
     )
