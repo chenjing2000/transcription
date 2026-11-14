@@ -215,6 +215,21 @@ def prepare_audio(
         # Never leave an incomplete staging artifact behind.
         destination.unlink(missing_ok=True)
         raise
+    # ASR receives canonical FFmpeg-decoded mono 16kHz PCM, while the
+    # source-codec audio remains the separately published output artifact.
+    recognition_wav = folder / (stem + ".recognition.wav")
+    try:
+        _run([
+            executable, "-nostdin", "-hide_banner", "-loglevel", "error",
+            "-i", str(destination), "-map", "0:a:0", "-vn",
+            "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le",
+            "-n", str(recognition_wav),
+        ], "FFmpeg canonical recognition audio decoding failed")
+        if not recognition_wav.is_file() or not recognition_wav.stat().st_size:
+            raise TranscriptionError("AUDIO_EXTRACTION_FAILED", "Empty recognition WAV")
+    except Exception:
+        recognition_wav.unlink(missing_ok=True)
+        raise
     warnings = []
     if stream.start_time is None or copied.start_time is None:
         warnings.append("Stream start time missing; original video time mapping is unverified")
