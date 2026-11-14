@@ -47,5 +47,7 @@ def test_real_audio_copy_with_nonzero_video_origin_is_not_claimed_verified(tmp_p
     ], check=True)
     prepared = prepare_audio(source, tmp_path / "stage")
     assert prepared.audio_path.exists()
-    # Packet-level check does not yet represent a verified *video* timeline.
-    assert "constant-offset mapping must be verified" in " ".join(prepared.warnings)
+    # A decoded-sample check can independently validate a delayed audio track.
+    assert prepared.video_playback_offset is not None, prepared.video_mapping_reason
+    assert abs(prepared.video_playback_offset - 0.35) < 0.05
+    assert prepared.video_mapping_reason == "Decoded samples and continuous presentation times verified"
